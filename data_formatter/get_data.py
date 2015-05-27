@@ -190,7 +190,14 @@ def parallel_filter_coastcolour_data():
             f.close()
 
 
-def change_polaris(locations, filename, filebase):
+def change_polaris(locations, filename, filename_base):
+    """
+    From the big ugly file you download from polaris this seperates the data to the .csv group format
+    :param locations:
+    :param filename:
+    :param filename_base:
+    """
+
     data = {}
     names = []
     for l in locations:
@@ -203,24 +210,33 @@ def change_polaris(locations, filename, filebase):
         for row in myreader:
             d = {}
             for i in range(0, len(row)):
-                # if i != 2:
-                d[names[i]] = row[i]
+                if i == 0:
+                    d[names[0] + names[1]] = row[0] + ' ' + row[1]
+                elif i == 1:
+                    continue
+                else:
+                    d[names[i]] = row[i]
             data[str(int(round(float(row[2]))))].append(d)
 
     for l in data.keys():
         if len(data[l]) > 0:
-            with open(filebase + 'polaris_data_' + l + '.csv', 'w') as f:
+            with open(filename_base + 'polaris_data_' + l + '.csv', 'w') as f:
                 mywriter = csv.writer(f)
                 name_row = []
-                for i in range(0,len(names)):
-                    # if i != 2:
-                    name_row.append(names[i])
+                for i in range(0, len(names)):
+                    if i == 0:
+                        name_row.append(names[0] + names[1])
+                    elif i == 1:
+                        continue
+                    else:
+                        name_row.append(names[i])
                 mywriter.writerow(name_row)
 
                 for line in data[l]:
                     row = []
                     for n in name_row:
                         row.append(line[n])
+
                     mywriter.writerow(row)
 
 
@@ -228,7 +244,7 @@ def change_polaris(locations, filename, filebase):
 
 
 if __name__ == '__main__':
-    data_dir = '/Users/jadelson/Documents/phdResearch/SedimentLearning/2015_Project/data/'
+    data_dir = '../data/'
 
     # parallel_filter_coastcolour_data()
     polaris_locations = get_polaris_list(data_dir + 'polaris/polaris_locations.csv')
