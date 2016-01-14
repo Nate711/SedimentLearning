@@ -60,6 +60,7 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, 
 	plt.title(r'%s Ridge Regression $\alpha$ = %s' % (title, this_alpha))
 	plt.xlabel('Predicted turbidity')
 	plt.ylabel('In situ measure turbidity')
+	#plt.show()
 
 	return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
 		   mean_squared_error(y_train.tolist(), clf.predict(x_train).tolist()), \
@@ -145,17 +146,14 @@ def get_data(filenames):
 
 	X = np.array(x_dict.values())
 
-	#print Y[0]
-	#y = np.array(Y,dtype='float64')
-
 	# The shape of y is (7,) because it's non-rectangular, each row in y has a different length
 	# Each row of x is the same length so it reads (3003,12)
 	Y = np.array(y_dict[Y_CODE])
-	#X = X[:, 1:]
 
-	# don't need Y[1:] anymore i think
-	return X.transpose(), Y#Y[1:]
+	#print X.shape,Y.shape
+	#print Y
 
+	return X.transpose(), Y
 
 def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
 	"""
@@ -230,7 +228,7 @@ def main():
 
 
 	print kfolds_ridge(X, y, 0.5)
-	find_best_shrink_polynomial_degree_ridgee(X,y,True)
+	#find_best_shrink_polynomial_degree_ridgee(X,y,True)
 	#print X.shape, y.shape
 
 	# why is the shape of X blah,blah but the shape of y blah, even though they're both 2d????????
