@@ -114,7 +114,6 @@ def get_data(filenames):
 	y_dict = {}
 	for n in x_names:
 		x_dict[n] = np.zeros((0,0))
-		#print x_dict[n]
 	for n in y_names:
 		y_dict[n] = np.zeros((0,0))
 
@@ -152,10 +151,10 @@ def get_data(filenames):
 	# The shape of y is (7,) because it's non-rectangular, each row in y has a different length
 	# Each row of x is the same length so it reads (3003,12)
 	Y = np.array(y_dict[Y_CODE])
-	X = X[:, 1:]
+	#X = X[:, 1:]
 
 	# don't need Y[1:] anymore i think
-	return X.transpose(), Y[1:]
+	return X.transpose(), Y#Y[1:]
 
 
 def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
@@ -183,7 +182,8 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
 		for a in log_alpha:
 			a = 2.0 ** (a / 10.0)
 			try:
-				x = np.sqrt(kfolds_poly_ridge(x_data, y_data, degree, a))
+				x = np.sqrt(kfolds_ridge(x_data,y_data,a))
+				#x = np.sqrt(kfolds_poly_ridge(x_data, y_data, degree, a))
 				if x < 100000:
 					errors.append(x)
 					alpha.append(a)
@@ -202,7 +202,8 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
 	plt.ylabel(r'K-Folds averaged Root Mean Square Error')
 	plt.legend(degrees, loc='upper left')
 	if save_flag:
-		plt.savefig('/Users/jadelson/Documents/phdResearch/SedimentLearning/figures/polynomial_ridge')
+		plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/polynomial_ridge')
+		#plt.savefig('/Users/jadelson/Documents/phdResearch/SedimentLearning/figures/polynomial_ridge')
 
 
 def main():
@@ -223,16 +224,13 @@ def main():
 
 	X, y = get_data(filenames)
 
-	#k = y[0]
-	#print k
-	#print k[1]
-
 
 	#X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
 	#X, y = get_data(['/Users/Nathan/Dropbox/SedimentLearning/data/full/polaris8.csv'])
 
 
 	print kfolds_ridge(X, y, 0.5)
+	find_best_shrink_polynomial_degree_ridgee(X,y,True)
 	#print X.shape, y.shape
 
 	# why is the shape of X blah,blah but the shape of y blah, even though they're both 2d????????
