@@ -97,17 +97,26 @@ def kfolds_ridge(x_data1, y_data1, param):
 
 def get_data(filenames):
 	"""
-	Read in data from csv files
+	Read in data from csv files.
+
+	Nathan-
+	Grabs all reflectance values from csv by checking column against x_names.
+
+	Grabs SPM values from usgs and polaris csvs.
 
 	:param filenames: datafile
-	:return: feature inputs, feature outputs
+	:return: feature inputs (row vector, i think), feature outputs (column vector)
 	"""
+
+	# np.array is a function!!!!
+
 	x_dict = {}
 	y_dict = {}
 	for n in x_names:
-		x_dict[n] = np.array
+		x_dict[n] = np.zeros((0,0))
+		#print x_dict[n]
 	for n in y_names:
-		y_dict[n] = np.array
+		y_dict[n] = np.zeros((0,0))
 
 	for f in filenames:
 		with open(f, 'rb') as csvfile:
@@ -118,6 +127,7 @@ def get_data(filenames):
 					if n in y_names:
 						if not row[n] == '':
 							y = float(row[n])
+							#print y
 						else:
 							continue
 					if n in x_names:
@@ -125,11 +135,25 @@ def get_data(filenames):
 					if n in y_names:
 						y_dict[n] = np.append(y_dict[n], y)
 
+						#print y_dict[n][0]
+
+	'''
+	for n in x_names:
+		print (x_dict[n]).shape
+	for n in y_names:
+		print (y_dict[n]).shape
+	'''
+
 	X = np.array(x_dict.values())
 	Y = np.array(y_dict.values())
-	X = X[:, 1:]
+	#print Y[0]
+	#y = np.array(Y,dtype='float64')
 
-	return X.transpose(), Y[1:]
+	# The shape of y is (7,) because it's non-rectangular, each row in y has a different length
+	# Each row of x is the same length so it reads (3003,12)
+
+	# don't need Y[1:] anymore i think
+	return X.transpose(), Y
 
 
 def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
@@ -183,15 +207,32 @@ def main():
 	"""
 	Main function, must call get data then do some regression work
 	"""
-	mypath = '/Users/jadelson/Dropbox/SedimentLearning/data/full/'
+
+	#mypath = '/Users/jadelson/Dropbox/SedimentLearning/data/full/'
+
+	mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
+
 	from os import listdir
 	from os.path import isfile, join
-	filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
-	X, y = get_data(filenames)
-	#X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
-	#print kfolds_ridge(X, y, 0.5)
-	print X.shape, y.shape
 
+	# grabs all the filenames of csvs inside data/full/
+	# polaris11.csv, usgs...csv, etc
+	filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
+
+	#X, y = get_data(filenames)
+
+	#k = y[0]
+	#print k
+	#print k[1]
+
+
+	#X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
+	X, y = get_data(['/Users/Nathan/Dropbox/SedimentLearning/data/full/polaris8.csv'])
+	print X.shape, y.shape
+	print kfolds_ridge(X, y, 0.5)
+
+
+	# why is the shape of X blah,blah but the shape of y blah, even though they're both 2d????????
 
 if __name__ == '__main__':
 	main()
