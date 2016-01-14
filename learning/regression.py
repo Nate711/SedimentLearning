@@ -30,8 +30,9 @@ x_names = ['reflec_1', 'reflec_10',
 		   'reflec_9']
 
 # y values read from usgs online data
-y_names = ['04_80154', '05_80154', '06_63680', '07_63680', '03_63680', '09_80154', '10_80154','Calculated SPM']
+#y_names = ['04_80154', '05_80154', '06_63680', '07_63680', '03_63680', '09_80154', '10_80154','Calculated SPM']
 
+y_names = ['05_80154']
 # USGS data code for this particular y value
 Y_CODE = '05_80154'
 
@@ -113,19 +114,25 @@ def get_data(filenames):
 		with open(f, 'rb') as csvfile:
 			reader = csv.DictReader(csvfile, delimiter=',')
 			for row in reader:
+				good = False
+				y = np.nan
 				for n in row.keys():
-					y = np.nan
 					if n in y_names:
 						if not row[n] == '':
 							y = float(row[n])
+							good = True
 						else:
 							continue
-					if n in x_names:
-						x_dict[n] = np.append(x_dict[n], float(row[n]))
-					if n in y_names:
-						y_dict[n] = np.append(y_dict[n], y)
+
+				for n in row.keys():
+					if good:
+						if n in x_names:
+							x_dict[n] = np.append(x_dict[n], float(row[n]))
+						if n in y_names:
+							y_dict[n] = np.append(y_dict[n], y)
 
 	X = np.array(x_dict.values())
+
 	Y = np.array(y_dict[Y_CODE])
 	X = X[:, 1:]
 
@@ -190,7 +197,7 @@ def main():
 	X, y = get_data(filenames)
 	#X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
 	print kfolds_ridge(X, y, 0.5)
-	#print X.shape, y.shape
+
 
 
 if __name__ == '__main__':
