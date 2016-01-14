@@ -33,7 +33,7 @@ x_names = ['reflec_1', 'reflec_10',
 y_names = ['04_80154', '05_80154', '06_63680', '07_63680', '03_63680', '09_80154', '10_80154','Calculated SPM']
 
 # USGS data code for this particular y value
-Y_CODE = 'Calculated SPM'
+Y_CODE = '05_80154'
 
 
 def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, title=''):
@@ -145,15 +145,17 @@ def get_data(filenames):
 	'''
 
 	X = np.array(x_dict.values())
-	Y = np.array(y_dict.values())
+
 	#print Y[0]
 	#y = np.array(Y,dtype='float64')
 
 	# The shape of y is (7,) because it's non-rectangular, each row in y has a different length
 	# Each row of x is the same length so it reads (3003,12)
+	Y = np.array(y_dict[Y_CODE])
+	X = X[:, 1:]
 
 	# don't need Y[1:] anymore i think
-	return X.transpose(), Y
+	return X.transpose(), Y[1:]
 
 
 def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
@@ -219,7 +221,7 @@ def main():
 	# polaris11.csv, usgs...csv, etc
 	filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
 
-	#X, y = get_data(filenames)
+	X, y = get_data(filenames)
 
 	#k = y[0]
 	#print k
@@ -227,10 +229,11 @@ def main():
 
 
 	#X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
-	X, y = get_data(['/Users/Nathan/Dropbox/SedimentLearning/data/full/polaris8.csv'])
-	print X.shape, y.shape
-	print kfolds_ridge(X, y, 0.5)
+	#X, y = get_data(['/Users/Nathan/Dropbox/SedimentLearning/data/full/polaris8.csv'])
 
+
+	print kfolds_ridge(X, y, 0.5)
+	#print X.shape, y.shape
 
 	# why is the shape of X blah,blah but the shape of y blah, even though they're both 2d????????
 
