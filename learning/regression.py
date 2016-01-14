@@ -33,7 +33,7 @@ x_names = ['reflec_1', 'reflec_10',
 y_names = ['04_80154', '05_80154', '06_63680', '07_63680', '03_63680', '09_80154', '10_80154','Calculated SPM']
 
 # USGS data code for this particular y value
-Y_CODE = 'Calculated SPM'
+Y_CODE = '05_80154'
 
 
 def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, title=''):
@@ -126,7 +126,7 @@ def get_data(filenames):
 						y_dict[n] = np.append(y_dict[n], y)
 
 	X = np.array(x_dict.values())
-	Y = np.array(y_dict.values())
+	Y = np.array(y_dict[Y_CODE])
 	X = X[:, 1:]
 
 	return X.transpose(), Y[1:]
@@ -189,8 +189,8 @@ def main():
 	filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
 	X, y = get_data(filenames)
 	#X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
-	#print kfolds_ridge(X, y, 0.5)
-	print X.shape, y.shape
+	print kfolds_ridge(X, y, 0.5)
+	#print X.shape, y.shape
 
 
 if __name__ == '__main__':
