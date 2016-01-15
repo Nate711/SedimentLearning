@@ -30,8 +30,9 @@ x_names = ['reflec_1', 'reflec_10',
 		   'reflec_9']
 
 # y values read from usgs online data
-y_names = ['04_80154', '05_80154', '06_63680', '07_63680', '03_63680', '09_80154', '10_80154','Calculated SPM']
+#y_names = ['04_80154', '05_80154', '06_63680', '07_63680', '03_63680', '09_80154', '10_80154','Calculated SPM']
 
+y_names = ['05_80154']
 # USGS data code for this particular y value
 Y_CODE = '05_80154'
 
@@ -122,18 +123,23 @@ def get_data(filenames):
 		with open(f, 'rb') as csvfile:
 			reader = csv.DictReader(csvfile, delimiter=',')
 			for row in reader:
+				good = False
+				y = np.nan
 				for n in row.keys():
-					y = np.nan
 					if n in y_names:
 						if not row[n] == '':
 							y = float(row[n])
-							#print y
-						else:
+
+							good = True
+
 							continue
-					if n in x_names:
-						x_dict[n] = np.append(x_dict[n], float(row[n]))
-					if n in y_names:
-						y_dict[n] = np.append(y_dict[n], y)
+
+				for n in row.keys():
+					if good:
+						if n in x_names:
+							x_dict[n] = np.append(x_dict[n], float(row[n]))
+						if n in y_names:
+							y_dict[n] = np.append(y_dict[n], y)
 
 						#print y_dict[n][0]
 
@@ -146,8 +152,10 @@ def get_data(filenames):
 
 	X = np.array(x_dict.values())
 
+
 	# The shape of y is (7,) because it's non-rectangular, each row in y has a different length
 	# Each row of x is the same length so it reads (3003,12)
+
 	Y = np.array(y_dict[Y_CODE])
 
 	#print X.shape,Y.shape
@@ -228,8 +236,10 @@ def main():
 
 
 	print kfolds_ridge(X, y, 0.5)
+
 	#find_best_shrink_polynomial_degree_ridgee(X,y,True)
 	#print X.shape, y.shape
+
 
 	# why is the shape of X blah,blah but the shape of y blah, even though they're both 2d????????
 
