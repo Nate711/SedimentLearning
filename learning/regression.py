@@ -123,28 +123,29 @@ def get_data(filenames):
         with open(f, 'rb') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=',')
             for row in reader:
-
                 # control flag: good when no empty data, not good when empty data
                 good = False
 
                 y = np.nan
+
+                # iterate through csv keys including reflect, 08_blah, etc
                 for n in row.keys():
+
+                    # if the key is a turbidity measurement
                     if n in y_names:
                         if not row[n] == '':
                             y = float(row[n])
 
                             good = True
-
                             continue
 
+                # only add values to dicts if no missing data
                 for n in row.keys():
                     if good:
                         if n in x_names:
                             x_dict[n] = np.append(x_dict[n], float(row[n]))
                         if n in y_names:
                             y_dict[n] = np.append(y_dict[n], y)
-
-                            # print y_dict[n][0]
 
     '''
     for n in x_names:
