@@ -61,7 +61,7 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, 
     plt.title(r'%s Ridge Regression $\alpha$ = %s' % (title, this_alpha))
     plt.xlabel('Predicted turbidity')
     plt.ylabel('In situ measure turbidity')
-    # plt.show()
+    plt.show()
 
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
            mean_squared_error(y_train.tolist(), clf.predict(x_train).tolist()), \
@@ -122,11 +122,12 @@ def get_data(filenames):
     for f in filenames:
         with open(f, 'rb') as csvfile:
             reader = csv.DictReader(csvfile, delimiter=',')
+
             for row in reader:
-                # control flag: good when no empty data, not good when empty data
+                # control flag: good when no empty data in row, not good when empty data in row
                 good = False
 
-                y = np.nan
+                y = np.nan # default y value, could be a problem / introduce bugs
 
                 # iterate through csv keys including reflect, 08_blah, etc
                 for n in row.keys():
@@ -135,8 +136,16 @@ def get_data(filenames):
                     if n in y_names:
                         if not row[n] == '':
                             y = float(row[n])
-
+                            
                             good = True
+                            continue
+
+                    if n in x_names:
+                        if row[n] == '':
+                            good = False
+                            print 'bad data'
+
+                            #break out of for loop b/c don't care if there are other empties
                             continue
 
                 # only add values to dicts if no missing data
