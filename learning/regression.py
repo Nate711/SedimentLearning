@@ -37,7 +37,7 @@ y_names = ['05_80154']
 Y_CODE = '05_80154'
 
 
-def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, title=''):
+def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_alpha=0, title=''):
     # print 'Ridge regression alpha =', this_alpha
     """
     ridge_regression fits a linear model with norm 2 regularization term for the ridge regression
@@ -51,8 +51,11 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, 
     :param title: title of plot
     :return: mean squared error of test data, mean square error of training data, predicted test set outputs, predicted training set outputs
     """
+
+    # fits the linear ridge model, scikit makes it all easy
     clf = linear_model.Ridge(alpha=this_alpha)
     clf.fit(x_train, y_train)
+
     print clf
     print x_test.shape
     y_pred = clf.predict(x_test)
@@ -61,7 +64,11 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, 
     plt.title(r'%s Ridge Regression $\alpha$ = %s' % (title, this_alpha))
     plt.xlabel('Predicted turbidity')
     plt.ylabel('In situ measure turbidity')
-    #plt.show()
+
+    # is this a valid way of checking for a save? should use a flag?
+    if save_name is not np.nan:
+        plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/' + save_name)
+        plt.show()
 
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
            mean_squared_error(y_train.tolist(), clf.predict(x_train).tolist()), \
@@ -80,14 +87,21 @@ def kfolds_ridge(x_data1, y_data1, param):
     """
     m = len(y_data1)
     folds = 5
+
+    # get indices for kfolds validation
     kf = cross_validation.KFold(m, n_folds=folds, random_state=4)
+
     errors = np.zeros(5)
     x_data = np.array(x_data1)
     y_data = np.array(y_data1)
+
+    # what's the point of i?
     i = 0
     for train_index, test_index in kf:
         x_train, x_test = x_data[train_index, :], x_data[test_index, :]
         y_train, y_test = y_data[train_index], y_data[test_index]
+
+        # run the ridge regression
         test_error, train_error, y_pred, y_train_pred = ridge_regression(x_train, x_test, y_train, y_test,
                                                                          'all_remote_data_ridge2.png', param,
                                                                          'Raw in situ Data, no tide information.')
@@ -108,6 +122,7 @@ def get_data(filenames):
     :return: feature inputs (row vector, i think), feature outputs (column vector)
     """
 
+    # initialize dictionaries to empty arrays
     x_dict = {}
     y_dict = {}
     for n in x_names:
@@ -123,19 +138,21 @@ def get_data(filenames):
                 # control flag: good when no empty data in row, not good when empty data in row
                 good = False
 
-                y = np.nan # default y value, could be a problem / introduce bugs
+                # default y value, could be a problem / introduce bugs
+                y = np.nan
 
                 # iterate through csv keys including reflect, 08_blah, etc
                 for n in row.keys():
 
-                    # if the key is a turbidity measurement
+                    # potential error: assumes only one y_name we want
+                    # check if SPM is in the row
                     if n in y_names:
                         if not row[n] == '':
                             y = float(row[n])
 
                             good = True
                             continue
-
+                    # check if there are empty x values, set to bad if there are
                     if n in x_names:
                         if row[n] == '':
                             good = False
@@ -144,7 +161,7 @@ def get_data(filenames):
                             #break out of for loop b/c don't care if there are other empties
                             continue
 
-                # only add values to dicts if no missing data
+                # only add values to dicts if no missing data, again, assumes only one y
                 for n in row.keys():
                     if good:
                         if n in x_names:
@@ -174,18 +191,22 @@ def get_data(filenames):
 
 def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
     """
-    Does a parameter sweep and uses kmeans cross validation to find the optimal ridge parameter
+    Does a parameter sweep and uses kmeans cross validation to find the optimal ridge parameter. Currently only linear
 
     :param x_data: feature inputs
     :param y_data: feature outputs
     :param save_flag: flag to save file
     """
-    step = 10
+    # sweep through powers of 2
+    step = 1
     # log_alphas = [range(-100, 60, step), range(40, 110, step), range(100, 150, step), range(210, 230, step)]
-    log_alphas = [range(-100, 200, step), range(-10, 200, step)]
+    log_alphas = [range(-10, 20, step), range(-1, 20, step)]
 
-    degrees = [1, 2]
-    #degrees = [1]
+
+    # ridge regression only implemented for linear right now
+    #degrees = [1,2]
+    degrees = [1]
+
     for (degree, log_alpha) in zip(degrees, log_alphas):
         print degree
         # for degree in [5,6]:
@@ -196,8 +217,9 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
         alpha = []
         errors = []
         for a in log_alpha:
-            a = 2.0 ** (a / 10.0)
+            a = 2.0 ** (a)
             try:
+                # sqrt of mean squared error (standard dev of errors?)
                 x = np.sqrt(kfolds_ridge(x_data, y_data, a))
                 # x = np.sqrt(kfolds_poly_ridge(x_data, y_data, degree, a))
                 if x < 100000:
@@ -205,6 +227,7 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
                     alpha.append(a)
             except ValueError:
                 pass
+        # skip to the next degree w/o printing if no good alphas found
         if len(alpha) == 0:
             continue
         print 'OUTPUT: RIDGE DEGREE:', degree
@@ -217,7 +240,7 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
     plt.xlabel(r'$\beta$')
     plt.ylabel(r'K-Folds averaged Root Mean Square Error')
     plt.legend(degrees, loc='upper left')
-    plt.show()
+    #plt.show()
     if save_flag:
         plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/polynomial_ridge')
         # plt.savefig('/Users/jadelson/Documents/phdResearch/SedimentLearning/figures/polynomial_ridge')
@@ -249,8 +272,8 @@ def main():
 
     #print kfolds_ridge(X, y, 0.5)
 
-
-    find_best_shrink_polynomial_degree_ridgee(X,y,True)
+    ridge_regression(X,X,y,y,'ridge.png',0.5,'hello')
+    find_best_shrink_polynomial_degree_ridgee(X,y,False)
 
 if __name__ == '__main__':
     main()
