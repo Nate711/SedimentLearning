@@ -61,7 +61,7 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name, this_alpha=0, 
     plt.title(r'%s Ridge Regression $\alpha$ = %s' % (title, this_alpha))
     plt.xlabel('Predicted turbidity')
     plt.ylabel('In situ measure turbidity')
-    plt.show()
+    #plt.show()
 
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
            mean_squared_error(y_train.tolist(), clf.predict(x_train).tolist()), \
@@ -101,16 +101,12 @@ def get_data(filenames):
     """
     Read in data from csv files.
 
-    Nathan-
     Grabs all reflectance values from csv by checking column against x_names.
-
-    Grabs SPM values from usgs and polaris csvs.
+    Grabs SPM values
 
     :param filenames: datafile
     :return: feature inputs (row vector, i think), feature outputs (column vector)
     """
-
-    # np.array is a function!!!!
 
     x_dict = {}
     y_dict = {}
@@ -136,7 +132,7 @@ def get_data(filenames):
                     if n in y_names:
                         if not row[n] == '':
                             y = float(row[n])
-                            
+
                             good = True
                             continue
 
@@ -189,6 +185,7 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
     log_alphas = [range(-100, 200, step), range(-10, 200, step)]
 
     degrees = [1, 2]
+    #degrees = [1]
     for (degree, log_alpha) in zip(degrees, log_alphas):
         print degree
         # for degree in [5,6]:
@@ -220,6 +217,7 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
     plt.xlabel(r'$\beta$')
     plt.ylabel(r'K-Folds averaged Root Mean Square Error')
     plt.legend(degrees, loc='upper left')
+    plt.show()
     if save_flag:
         plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/polynomial_ridge')
         # plt.savefig('/Users/jadelson/Documents/phdResearch/SedimentLearning/figures/polynomial_ridge')
@@ -243,18 +241,16 @@ def main():
 
     X, y = get_data(filenames)
 
+    print X.shape, y.shape
+
     # X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
     # X, y = get_data(['/Users/Nathan/Dropbox/SedimentLearning/data/full/polaris8.csv'])
 
 
-    print kfolds_ridge(X, y, 0.5)
+    #print kfolds_ridge(X, y, 0.5)
 
 
-# find_best_shrink_polynomial_degree_ridgee(X,y,True)
-# print X.shape, y.shape
-
-
-# why is the shape of X blah,blah but the shape of y blah, even though they're both 2d????????
+    find_best_shrink_polynomial_degree_ridgee(X,y,True)
 
 if __name__ == '__main__':
     main()
