@@ -19,5 +19,5 @@ print unique_x
 min_lat,max_lat = min(unique_x[:,0]),max(unique_x[:,0])
 min_long,max_long = min(unique_x[:,1]),max(unique_x[:,1])
 
-print min_lat, max_long
-print max_lat, min_long
+print 'bottom right ' + str(min_lat, max_long)
+print 'top left ' + str(max_lat, min_long)
