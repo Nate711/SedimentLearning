@@ -22,7 +22,10 @@ def get_data(filenames,x_names,y_name):
             for row in reader:
                 for key in row.keys():
                     if key in x_names:
-                        x_dict[key] = np.append(x_dict[key],float(row[key]))
+                        try:
+                            x_dict[key] = np.append(x_dict[key],float(row[key]))
+                        except ValueError: # in case it isn't a float
+                            x_dict[key] = np.append(x_dict[key],(row[key]))
 
                     if key == y_name:
                         y_values = np.append(y_values,float(row[key]))
