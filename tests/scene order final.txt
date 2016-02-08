@@ -1,0 +1,9 @@
+Stations:
+Bottom right (37.471666666700003, -121.688333333)
+Top left (38.148333333300002, -122.514722222)
+
+Offset top left (includes buffer zone)
+38.150296, -122.518357
+
+Offset bottom right
+37.470354, -121.686092
