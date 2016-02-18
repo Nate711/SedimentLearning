@@ -171,18 +171,16 @@ def get_data((station_locs_dict, station_image_coors_dict)):
 
 if __name__ == '__main__':
 
-    #print get_polaris_list('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_locations.csv')
+    print get_polaris_list('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_locations.csv')
     before = time.time()
     dict = load_station_image_lat_long()
     data =  get_data(dict)
-    print time.time()-before
+    print "Time to parse images and create dictionary: " + str(time.time()-before)
 
     data_columns = ['date_time', 'cf_mask_quality', 'cloud', 'station_ID', 'lat', 'long', 'landsat_scene', 'reflec_1',
                     'reflec_2', 'reflec_3','reflec_4', 'reflec_5', 'reflec_6','reflec_7']
     before = time.time()
     df = pd.DataFrame.from_dict(data)
-    print time.time() - before
 
-    before = time.time()
     df.to_csv('/Users/Nathan/Desktop/landsat_data.csv',mode='wb+',index=False)
-    print time.time()-before
+    print "Time to write dictionary to file: " + str(time.time()-before)
