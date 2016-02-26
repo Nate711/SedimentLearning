@@ -187,5 +187,5 @@ if __name__ == '__main__':
     before = time.time()
     df = pd.DataFrame.from_dict(data)
 
-    df.to_csv('/Users/Nathan/Desktop/landsat_data.csv',mode='wb+',index=False)
+    df.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data.csv',mode='wb+',index=False)
     print "Time to write dictionary to file: " + str(time.time()-before)
