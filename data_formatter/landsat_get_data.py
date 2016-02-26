@@ -99,7 +99,12 @@ def get_data((station_locs_dict, station_image_coors_dict)):
     landsat_data_path = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat/'
     folders = get_scene_folders(landsat_data_path)
 
+    count = 0
+    total_scenes = len(folders)
     for scene_folder in folders:  # code to execute for each scene
+        print "Scene: {}    {} / {}".format(scene_folder,count,total_scenes)
+        count = count+1
+
         # get names of all images in the scene folder
         imgs = get_scene_imgs(scene_folder)
 
