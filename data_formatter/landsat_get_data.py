@@ -1,23 +1,27 @@
 import glob
 from datetime import datetime
+from datetime import timedelta
 import cv2
 import numpy as np
 import csv
 import pandas as pd
 import time
-
+import pytz
 from get_data import get_polaris_list
 
-def load_station_image_lat_long(path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/station_img_coordinates.csv'):
+
+def load_station_image_lat_long(
+        path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/station_img_coordinates.csv'):
     df = pd.read_csv(path)
 
-    latlong_coors = zip(df['Lat'],df['Long'])
-    latlong = dict(zip(df['Station'],latlong_coors))
+    latlong_coors = zip(df['Lat'], df['Long'])
+    latlong = dict(zip(df['Station'], latlong_coors))
 
-    yx_coors = zip(df['Y'],df['X'])
-    yx = dict(zip(df['Station'],yx_coors))
+    yx_coors = zip(df['Y'], df['X'])
+    yx = dict(zip(df['Station'], yx_coors))
 
-    return latlong,yx
+    return latlong, yx
+
 
 def get_scene_folders(path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/'):
     return glob.glob(path + '*/')  # full path of each folder asdfasdf/asdf/asd/fa/LC1209310/
@@ -89,8 +93,7 @@ def get_datetime_from_metadata(metadata_path):
 
 def get_data((station_locs_dict, station_image_coors_dict)):
     data_columns = ['date_time', 'cf_mask_quality', 'cloud', 'station_ID', 'lat', 'long', 'landsat_scene', 'reflec_1',
-                    'reflec_2', 'reflec_3','reflec_4', 'reflec_5', 'reflec_6','reflec_7']
-
+                    'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']
 
     data = {}
     for col in data_columns:
@@ -102,8 +105,8 @@ def get_data((station_locs_dict, station_image_coors_dict)):
     count = 0
     total_scenes = len(folders)
     for scene_folder in folders:  # code to execute for each scene
-        print "Scene: {}    {} / {}".format(scene_folder,count,total_scenes)
-        count = count+1
+        print "Scene: {}    {} / {}".format(scene_folder, count, total_scenes)
+        count = count + 1
 
         # get names of all images in the scene folder
         imgs = get_scene_imgs(scene_folder)
@@ -114,7 +117,7 @@ def get_data((station_locs_dict, station_image_coors_dict)):
         cloud_path = get_cloud(imgs)
 
         # get the name of the scene extracted from cf path
-        scene_name = cf_path[cf_path.rfind('/')+1:cf_path.rfind('_')]
+        scene_name = cf_path[cf_path.rfind('/') + 1:cf_path.rfind('_')]
 
         data['landsat_scene'] = np.append(data['landsat_scene'], [scene_name] * len(station_image_coors_dict.keys()))
         data['station_ID'] = np.append(data['station_ID'], station_image_coors_dict.keys())
@@ -168,24 +171,130 @@ def get_data((station_locs_dict, station_image_coors_dict)):
 
     # check that there are as many data points as stations
     for col in data_columns:
-        #print col, len(data[col]), len(folders) * len(station_image_coors_dict.keys())
-        #print data[col]
+        # print col, len(data[col]), len(folders) * len(station_image_coors_dict.keys())
+        # print data[col]
         assert len(data[col]) == len(folders) * len(station_image_coors_dict.keys())
 
     return data
 
-if __name__ == '__main__':
 
-    print get_polaris_list('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_locations.csv')
+def time_and_write_landsat_data():
     before = time.time()
     dict = load_station_image_lat_long()
-    data =  get_data(dict)
-    print "Time to parse images and create dictionary: " + str(time.time()-before)
+    data = get_data(dict)
+    print "Time to parse images and create dictionary: " + str(time.time() - before)
 
     data_columns = ['date_time', 'cf_mask_quality', 'cloud', 'station_ID', 'lat', 'long', 'landsat_scene', 'reflec_1',
-                    'reflec_2', 'reflec_3','reflec_4', 'reflec_5', 'reflec_6','reflec_7']
+                    'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']
     before = time.time()
     df = pd.DataFrame.from_dict(data)
 
-    df.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data.csv',mode='wb+',index=False)
-    print "Time to write dictionary to file: " + str(time.time()-before)
+    df.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data.csv', mode='wb+', index=False)
+    print "Time to write dictionary to file: " + str(time.time() - before)
+
+
+def convert_polaris_to_UTC():
+    before = time.time()
+    polaris = pd.read_csv('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data.csv', low_memory=False)
+    # get rid of the units row
+    polaris.drop(polaris.index[0], inplace=True)
+    # combine date and time cols
+    polaris['date_time_UTC'] = polaris.Date + ' ' + polaris.Time
+
+    # strip spaces off of date_time
+    # convert to date_time
+    # convert PST to UTC
+    polaris['date_time_UTC'] = [datetime.strptime(x.strip(), '%m/%d/%Y %H%M') \
+                                    .replace(tzinfo=pytz.timezone('US/Pacific')) for x in polaris.date_time_UTC]
+
+    polaris['date_time_UTC'] = [x.astimezone(pytz.timezone('UTC')) for x in polaris.date_time_UTC]
+    polaris.to_csv('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv', mode='wb+',
+                   index=False)
+    print 'Time to execute conversion: ' + str(time.time() - before)
+
+
+def convert_landsat_to_UTC():
+    before = time.time()
+    data = pd.read_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data.csv')
+    data['date_time_UTC'] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') \
+                                 .replace(tzinfo=pytz.timezone('GMT')) for x in data['date_time']]
+    data['date_time_UTC'] = [x.astimezone(pytz.timezone('UTC')) for x in data['date_time_UTC']]
+    data.drop('date_time', axis=1, inplace=True)
+    data.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data_UTC.csv')
+    print 'Time to execute conversion: ' + str(time.time() - before)
+    return data
+
+
+def read_polaris_to_df():
+    polaris = pd.read_csv('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv',
+                          low_memory=False)
+    return polaris
+
+
+def read_landsat_to_df():
+    data = pd.read_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data_UTC.csv')
+    return data
+
+
+def create_final_filtered_csv():
+    landsat_df = read_landsat_to_df()
+    polaris_df = read_polaris_to_df()
+
+    filtered_df = landsat_df.copy()
+    filtered_df['time_diff'] = np.nan
+    #
+    for key in polaris_df.keys():
+        if key not in landsat_df.keys():
+            filtered_df[key] = np.nan
+
+    # Important: because %z (utc offset string) is not a supported directive on python 2.7 I truncate the utc offset which is 0
+    landsat_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in landsat_df['date_time_UTC']]
+    polaris_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in polaris_df['date_time_UTC']]
+
+
+    for station in landsat_df['station_ID'].unique():
+        landsat_subset_df = landsat_df[landsat_df['station_ID'] == station]
+        polaris_subset_df = polaris_df[polaris_df['Station Number'] == station]
+
+        count=0
+        for idx, date_time in zip(landsat_subset_df.index,landsat_subset_df['date_time_UTC']):
+            if(count%100 == 0):
+                print '{} / {} for location {}'.format(count, len(landsat_subset_df),station)
+            count+=1
+
+            # calculate and copy over time difference
+            time_diff = np.abs(date_time - polaris_df['date_time_UTC'])
+
+            # find index of smallest time difference
+            index_smallest = np.argmin(time_diff)
+            filtered_df.loc[idx,'time_diff'] = time_diff[index_smallest]
+
+            # copy polaris data over to landsat data
+            for key in polaris_df.keys():
+                if key=='date_time_UTC': break
+                filtered_df.loc[idx, key] = polaris_df.loc[index_smallest, key]
+
+
+        '''
+        polaris_row.index = [idx]
+
+        full_df = pd.concat([full_df,polaris_row],axis=1)
+        if idx == 50: break
+        '''
+
+    # filter data for time differences < 0.5 hrs
+    filter_hours = 8
+    filtered_df = filtered_df[filtered_df.time_diff < timedelta(hours=filter_hours)]
+
+    filtered_df.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/filtered.csv', mode='wb+', index=False)
+
+    return filtered_df
+
+
+if __name__ == '__main__':
+    # print read_polaris_to_df()
+    # print read_landsat_to_df()
+
+
+    filtered = create_final_filtered_csv()
+    print filtered
