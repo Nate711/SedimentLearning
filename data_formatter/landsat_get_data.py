@@ -251,36 +251,27 @@ def create_final_filtered_csv():
     landsat_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in landsat_df['date_time_UTC']]
     polaris_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in polaris_df['date_time_UTC']]
 
-
     for station in landsat_df['station_ID'].unique():
         landsat_subset_df = landsat_df[landsat_df['station_ID'] == station]
         polaris_subset_df = polaris_df[polaris_df['Station Number'] == station]
 
-        count=0
-        for idx, date_time in zip(landsat_subset_df.index,landsat_subset_df['date_time_UTC']):
-            if(count%100 == 0):
-                print '{} / {} for location {}'.format(count, len(landsat_subset_df),station)
-            count+=1
+        count = 0
+        for idx, date_time in zip(landsat_subset_df.index, landsat_subset_df['date_time_UTC']):
+            if (count % 100 == 0):
+                print '{} / {} for location {}'.format(count, len(landsat_subset_df), station)
+            count += 1
 
             # calculate and copy over time difference
             time_diff = np.abs(date_time - polaris_df['date_time_UTC'])
 
             # find index of smallest time difference
             index_smallest = np.argmin(time_diff)
-            filtered_df.loc[idx,'time_diff'] = time_diff[index_smallest]
+            filtered_df.loc[idx, 'time_diff'] = time_diff[index_smallest]
 
             # copy polaris data over to landsat data
             for key in polaris_df.keys():
-                if key=='date_time_UTC': break
+                if key == 'date_time_UTC': break
                 filtered_df.loc[idx, key] = polaris_df.loc[index_smallest, key]
-
-
-        '''
-        polaris_row.index = [idx]
-
-        full_df = pd.concat([full_df,polaris_row],axis=1)
-        if idx == 50: break
-        '''
 
     # filter data for time differences < 0.5 hrs
     filter_hours = 8
@@ -294,7 +285,6 @@ def create_final_filtered_csv():
 if __name__ == '__main__':
     # print read_polaris_to_df()
     # print read_landsat_to_df()
-
 
     filtered = create_final_filtered_csv()
     print filtered
