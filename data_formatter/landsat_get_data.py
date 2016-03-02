@@ -251,18 +251,21 @@ def create_final_filtered_csv():
     landsat_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in landsat_df['date_time_UTC']]
     polaris_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in polaris_df['date_time_UTC']]
 
+    filtered_df['landsat_UTC'] = landsat_df['date_time_UTC']
+    filtered_df['polaris_UTC'] = np.nan
+
     for station in landsat_df['station_ID'].unique():
         landsat_subset_df = landsat_df[landsat_df['station_ID'] == station]
         polaris_subset_df = polaris_df[polaris_df['Station Number'] == station]
 
         count = 0
         for idx, date_time in zip(landsat_subset_df.index, landsat_subset_df['date_time_UTC']):
-            if (count % 100 == 0):
+            if (count % 10 == 0):
                 print '{} / {} for location {}'.format(count, len(landsat_subset_df), station)
             count += 1
 
             # calculate and copy over time difference
-            time_diff = np.abs(date_time - polaris_df['date_time_UTC'])
+            time_diff = np.abs(date_time - polaris_subset_df['date_time_UTC'])
 
             # find index of smallest time difference
             index_smallest = np.argmin(time_diff)
@@ -271,9 +274,15 @@ def create_final_filtered_csv():
             # copy polaris data over to landsat data
             for key in polaris_df.keys():
                 if key == 'date_time_UTC': break
-                filtered_df.loc[idx, key] = polaris_df.loc[index_smallest, key]
+                filtered_df.loc[idx, key] = polaris_subset_df.loc[index_smallest, key]
 
-    # filter data for time differences < 0.5 hrs
+            # copy polaris date_time
+            filtered_df.loc[idx,'polaris_UTC'] = polaris_subset_df.loc[index_smallest,key]
+
+    filtered_df.drop('date_time_UTC',axis=1,inplace=True)
+    filtered_df.drop('Date',axis=1,inplace=True)
+    filtered_df.drop('Time',axis=1,inplace=True)
+    # filter data for time differences < 8 hrs
     filter_hours = 8
     filtered_df = filtered_df[filtered_df.time_diff < timedelta(hours=filter_hours)]
 
