@@ -304,14 +304,15 @@ def read_landsat_to_df(landsat_utc_path='/Users/Nathan/Desktop/Turbidity/Sedimen
 def create_final_filtered_csv(
         landsat_utc_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data_UTC.csv',
         polaris_utc_path='/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv',
-        save_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/filtered.csv',
-        filter_hours=8):
+        save_path_base='/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered', #IMPORTANT NO CSV EXTENSION
+        filter_hours=24):
     '''
     Go through the landsat and polaris data and match each landsat data point to the closest (time wise) polaris data point.
     This is all done in a pandas dataframe which is then written to a csv and returned.
     :param landsat_utc_path:
     :param polaris_utc_path:
-    :param save_path: path to save filtered csv to
+    :param save_path: path to save filtered csv to. IMPORTANT: THE CSV EXTENSION IS NOT
+        INCLUDED SO I CAN TACK ON FILTER HOURS PARAM TO SAVE NAME
 
     :param filter_hours: only data points taken within this many hours will be accepted
 
@@ -382,11 +383,37 @@ def create_final_filtered_csv(
     # filter data for time differences < filter_hours parameter
     filtered_df = filtered_df[filtered_df.time_diff < timedelta(hours=filter_hours)]
 
+    # drop data where the reflectances are out of valid range: 0-10000
+    for band in ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']:
+        filtered_df.drop(filtered_df.index[np.where(filtered_df[band]>10000)],inplace=True)
+
     # write to csv
+    save_path = save_path_base+'_' + str(filter_hours) + 'hr.csv'
     filtered_df.to_csv(save_path, mode='wb+', index=False)
 
     # return df
     return filtered_df
+
+def create_varied_cutoff_csvs(save_path_base = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered', cutoffs = [1,2,4,8,12,16,20,24]):
+    '''
+    Uses the filtered landsat/polaris csv with the 24 hr cutoff to create new csvs from it with different time cutoffs
+    :param save_path_base: base file path without the cutoff or csv extension
+    :param cutoffs: list of cutoffs
+    :return: nothing
+    '''
+    df = pd.read_csv(save_path_base + '_24hr.csv')
+
+    df['landsat_UTC'] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') for x in df['landsat_UTC']]
+    df['polaris_UTC'] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') for x in df['polaris_UTC']]
+    df['time_diff'] = np.abs(df['landsat_UTC']-df['polaris_UTC'])
+
+    # drop data where the reflectances are out of valid range: 1-10000
+    for band in ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']:
+        df.drop(df.index[np.where(df[band]>10000)],inplace=True)
+
+    for cutoff in cutoffs:
+        filtered_df = df[df.time_diff < timedelta(hours=cutoff)]
+        filtered_df.to_csv(save_path_base + '_' + str(cutoff) + 'hr.csv',index=False)
 
 
 if __name__ == '__main__':
@@ -395,5 +422,6 @@ if __name__ == '__main__':
     # print read_polaris_to_df()
     # print read_landsat_to_df()
 
-    filtered = create_final_filtered_csv()
-    print filtered
+    #filtered = create_final_filtered_csv()
+    #print filtered
+    #create_varied_cutoff_csvs()

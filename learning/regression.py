@@ -68,7 +68,7 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_al
     # is this a valid way of checking for a save? should use a flag?
     if save_name is not np.nan:
         plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/' + save_name)
-        plt.show()
+        #plt.show()
 
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
            mean_squared_error(y_train.tolist(), clf.predict(x_train).tolist()), \
