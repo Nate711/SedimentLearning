@@ -12,6 +12,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 import csv
+from os import listdir
+from os.path import isfile, join
 
 # All possible inputs (Some are integer flags that should not be used)
 '''
@@ -22,19 +24,38 @@ x_names = ['Kd_412', 'Kd_443', 'Kd_490', 'Kd_510', 'Kd_560', 'Kd_620', 'Kd_664',
            'owt_class_6', 'owt_class_7', 'owt_class_8', 'owt_class_9', 'owt_class_sum', 'reflec_1', 'reflec_10',
            'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7', 'reflec_8',
            'reflec_9', 'turbidity']
-'''
 
 # Basic Reflectance names
 x_names = ['reflec_1', 'reflec_10',
            'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7', 'reflec_8',
            'reflec_9']
+x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
 
 # y values read from usgs online data
 # y_names = ['04_80154', '05_80154', '06_63680', '07_63680', '03_63680', '09_80154', '10_80154','Calculated SPM']
 
-y_names = ['05_80154']
+y_names = ['Calculated SPM']
+#y_names = ['Calculated Chlorophyll']
+
 # USGS data code for this particular y value
-Y_CODE = '05_80154'
+#Y_CODE = '05_80154'
+
+Y_CODE = 'Calculated SPM'
+#Y_CODE = 'Calculated Chlorophyll'
+
+'''
+
+'''
+Notes:
+
+DD: 05 Statistic: 80154  Parameter:00003 is the: Suspended sediment concentration, milligrams per liter (Mean)
+
+CALCULATED SPM: estimated concentration of suspended sediments, calculated from the OBS voltage output and
+linear regression (calibration) between the discrete measures of suspended solids and the OBS voltage.
+The standard error of the calculated value for each cruise is listed at the top of the data table.
+Units of measurement are milligrams per liter.
+
+'''
 
 
 def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_alpha=0, title=''):
@@ -55,9 +76,10 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_al
     # fits the linear ridge model, scikit makes it all easy
     clf = linear_model.Ridge(alpha=this_alpha)
     clf.fit(x_train, y_train)
+    #print clf.coef_
 
-    print clf
-    print x_test.shape
+    #print clf
+    #print x_test.shape
     y_pred = clf.predict(x_test)
 
     plt.plot(y_pred, y_test, 'ok')
@@ -110,8 +132,7 @@ def kfolds_ridge(x_data1, y_data1, param):
         i += 1
     return np.mean(errors)
 
-
-def get_data(filenames):
+def get_data(x_names,y_names,filenames,Y_CODE):
     """
     Read in data from csv files.
 
@@ -189,7 +210,7 @@ def get_data(filenames):
     return X.transpose(), Y
 
 
-def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
+def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag,name_tag=''):
     """
     Does a parameter sweep and uses kmeans cross validation to find the optimal ridge parameter. Currently only linear
 
@@ -208,7 +229,7 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
     degrees = [1]
 
     for (degree, log_alpha) in zip(degrees, log_alphas):
-        print degree
+        # print degree
         # for degree in [5,6]:
         #     print degree
         #     log_alpha = range(-100, 1000, step)
@@ -219,8 +240,9 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
         for a in log_alpha:
             a = 2.0 ** (a)
             try:
-                # sqrt of mean squared error (standard dev of errors?)
+                # sqrt of mean squared error
                 x = np.sqrt(kfolds_ridge(x_data, y_data, a))
+
                 # x = np.sqrt(kfolds_poly_ridge(x_data, y_data, degree, a))
                 if x < 100000:
                     errors.append(x)
@@ -242,9 +264,28 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag):
     plt.legend(degrees, loc='upper left')
     #plt.show()
     if save_flag:
-        plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/polynomial_ridge')
+        plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/polynomial_ridge' + '_' + name_tag)
+        plt.show()
         # plt.savefig('/Users/jadelson/Documents/phdResearch/SedimentLearning/figures/polynomial_ridge')
 
+def simple_RIDGECV(X,y):
+    log_alphas = np.array(np.arange(-10,10,0.5),dtype='float64')
+    alphas = 2**log_alphas
+    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
+    #clf = svm.LinearSVR(epsilon=0.0)
+
+    clf.fit(X,y)
+
+    print 'OUTPUT: ALPHA: ' + str(clf.alpha_)
+
+    y_predict = clf.predict(X)
+
+    plt.plot(y_predict,y,'.k')
+    plt.title('Actual SPM vs Predicted SPM')
+    plt.xlabel('Predicted SPM (mg/L)')
+    plt.ylabel('Actual SPM (mg/L)')
+    print 'OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
+    plt.show()
 
 def main():
     """
@@ -253,27 +294,36 @@ def main():
 
     # mypath = '/Users/jadelson/Dropbox/SedimentLearning/data/full/'
 
-    mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
-
-    from os import listdir
-    from os.path import isfile, join
-
     # grabs all the filenames of csvs inside data/full/
     # polaris11.csv, usgs...csv, etc
+
+    x_names = ['reflec_1', 'reflec_10',
+           'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7', 'reflec_8',
+           'reflec_9']
+    y_names = ['05_80154']
+
+    mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
     filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
 
-    X, y = get_data(filenames)
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames = filenames,Y_CODE = '05_80154')
 
-    print X.shape, y.shape
+    print 'CC-USGS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
+    #find_best_shrink_polynomial_degree_ridgee(X,y,save_flag=True,name_tag='CC-USGS')
+    simple_RIDGECV(X,y)
 
-    # X, y = get_data(['/Users/jadelson/Dropbox/SedimentLearning/data/full/polaris8.csv'])
-    # X, y = get_data(['/Users/Nathan/Dropbox/SedimentLearning/data/full/polaris8.csv'])
 
+    ## DO LANDSAT REGRESSION
+    x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
+    y_names = ['Calculated SPM']
 
-    #print kfolds_ridge(X, y, 0.5)
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
-    ridge_regression(X,X,y,y,'ridge.png',0.5,'hello')
-    find_best_shrink_polynomial_degree_ridgee(X,y,False)
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+
+    print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
+
+    #find_best_shrink_polynomial_degree_ridgee(X,y,save_flag=True,name_tag='LANDSAT-POLARIS')
+    simple_RIDGECV(X,y)
 
 if __name__ == '__main__':
     main()
