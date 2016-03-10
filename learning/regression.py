@@ -47,9 +47,9 @@ Y_CODE = 'Calculated SPM'
 
 '''
 Notes:
-
+Source: http://waterdata.usgs.gov/ca/nwis/dv?format=rdb&site_no=11525535&referred_module=sw&begin_date=1900-1-1&end_date=2008-12-31
 DD: 05 Statistic: 80154  Parameter:00003 is the: Suspended sediment concentration, milligrams per liter (Mean)
-
+Source: http://sfbay.wr.usgs.gov/access/wqdata/query/qhelp.html
 CALCULATED SPM: estimated concentration of suspended sediments, calculated from the OBS voltage output and
 linear regression (calibration) between the discrete measures of suspended solids and the OBS voltage.
 The standard error of the calculated value for each cruise is listed at the top of the data table.
@@ -95,7 +95,6 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_al
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
            mean_squared_error(y_train.tolist(), clf.predict(x_train).tolist()), \
            y_pred, clf.predict(x_train)
-
 
 def kfolds_ridge(x_data1, y_data1, param):
     """
@@ -209,7 +208,6 @@ def get_data(x_names,y_names,filenames,Y_CODE):
 
     return X.transpose(), Y
 
-
 def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag,name_tag=''):
     """
     Does a parameter sweep and uses kmeans cross validation to find the optimal ridge parameter. Currently only linear
@@ -268,23 +266,58 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag,name_tag
         plt.show()
         # plt.savefig('/Users/jadelson/Documents/phdResearch/SedimentLearning/figures/polynomial_ridge')
 
-def simple_RIDGECV(X,y):
-    log_alphas = np.array(np.arange(-10,10,0.5),dtype='float64')
-    alphas = 2**log_alphas
-    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
-    #clf = svm.LinearSVR(epsilon=0.0)
-
+def simple_linearSVR(X,y):
+    '''
+    Perform a simple svr on the data.
+    RMSE for usgs/coastcolor is 70.6
+    RMSE for landsat/polaris (2hr) is 105.2
+    :param X:
+    :param y:
+    :return:
+    '''
+    clf = svm.LinearSVR(epsilon=0.0)
     clf.fit(X,y)
-
-    print 'OUTPUT: ALPHA: ' + str(clf.alpha_)
 
     y_predict = clf.predict(X)
 
     plt.plot(y_predict,y,'.k')
-    plt.title('Actual SPM vs Predicted SPM')
+    plt.title('Actual SPM vs Predicted SPM (SVR)')
     plt.xlabel('Predicted SPM (mg/L)')
     plt.ylabel('Actual SPM (mg/L)')
-    print 'OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
+    print 'SVR OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
+    plt.show()
+
+def simple_ridgeCV(X,y):
+    '''
+    Perform a ridge regression with cross validation.
+    RMSE for usgs/coastcolor is 57.2
+    RMSE for landsat/polaris (2hr) is 11.8
+    RMSE for landsat/polaris (4hr) is 19.0
+    RMSE for landsat/polaris (8hr) is 34.4
+    RMSE for landsat/polaris (12hr) is 34.4 - same data as 8hr
+    RMSE for landsat/polaris (16hr) is 34.4 - same data as 12hr
+    RMSE for landsat/polaris (20hr) is 33.4
+    RMSE for landsat/polaris (24hr) is 28.6
+
+    :param X: input data
+    :param y: output
+    :return: nothing
+    '''
+    log_alphas = np.array(np.arange(-15,15,0.5),dtype='float64')
+    alphas = 2**log_alphas
+    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
+
+    clf.fit(X,y)
+
+    #print 'OUTPUT: ALPHA: ' + str(clf.alpha_)
+
+    y_predict = clf.predict(X)
+
+    plt.plot(y_predict,y,'.k')
+    plt.title('Actual SPM vs Predicted SPM (Ridge)')
+    plt.xlabel('Predicted SPM (mg/L)')
+    plt.ylabel('Actual SPM (mg/L)')
+    print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
     plt.show()
 
 def main():
@@ -292,24 +325,23 @@ def main():
     Main function, must call get data then do some regression work
     """
 
-    # mypath = '/Users/jadelson/Dropbox/SedimentLearning/data/full/'
-
-    # grabs all the filenames of csvs inside data/full/
-    # polaris11.csv, usgs...csv, etc
-
     x_names = ['reflec_1', 'reflec_10',
            'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7', 'reflec_8',
            'reflec_9']
     y_names = ['05_80154']
 
+    # grabs all the filenames of csvs inside data/full/
+    # polaris11.csv, usgs...csv, etc
+    # mypath = '/Users/jadelson/Dropbox/SedimentLearning/data/full/'
     mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
     filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
 
     X, y = get_data(x_names = x_names,y_names=y_names,filenames = filenames,Y_CODE = '05_80154')
 
     print 'CC-USGS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
-    #find_best_shrink_polynomial_degree_ridgee(X,y,save_flag=True,name_tag='CC-USGS')
-    simple_RIDGECV(X,y)
+
+    simple_ridgeCV(X,y)
+    #simple_linearSVR(X,y)
 
 
     ## DO LANDSAT REGRESSION
@@ -322,8 +354,9 @@ def main():
 
     print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 
-    #find_best_shrink_polynomial_degree_ridgee(X,y,save_flag=True,name_tag='LANDSAT-POLARIS')
-    simple_RIDGECV(X,y)
+    simple_ridgeCV(X,y)
+    #simple_linearSVR(X,y)
+
 
 if __name__ == '__main__':
     main()
