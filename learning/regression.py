@@ -2,18 +2,20 @@ __author__ = 'jadelson'
 # Code for checking the sediment values against in situ data. Before the regression is run csv files of data must be
 # created. *_63680 codes for turbidty, *_99409 codes for suspended sediment concetration
 
-from sklearn import linear_model, cross_validation, decomposition
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import r2_score, explained_variance_score
-from sklearn import svm
-from sklearn import linear_model
-from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import make_pipeline
 import csv
 from os import listdir
 from os.path import isfile, join
+
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn import cross_validation
+from sklearn import linear_model
+from sklearn import svm
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score
+from sklearn.preprocessing import robust_scale
+from sklearn import preprocessing
+
 
 # All possible inputs (Some are integer flags that should not be used)
 '''
@@ -318,6 +320,7 @@ def simple_ridgeCV(X,y):
     plt.xlabel('Predicted SPM (mg/L)')
     plt.ylabel('Actual SPM (mg/L)')
     print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
+    print 'RIDGE OUTPUT: R2: ' + str(r2_score(y.tolist(),y_predict.tolist()))
     plt.show()
 
 def main():
@@ -340,6 +343,14 @@ def main():
 
     print 'CC-USGS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 
+    # scale X and make it degree 2 polynomial
+    X = robust_scale(X,axis=0)
+    poly = preprocessing.PolynomialFeatures(2)
+    X = poly.fit_transform(X)
+
+    # scale y
+    y = robust_scale(y.reshape(-1,1),axis=0)
+
     simple_ridgeCV(X,y)
     #simple_linearSVR(X,y)
 
@@ -348,15 +359,41 @@ def main():
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
 
     X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+
+    # scale X and make it degree 2 polynomial
+    X = robust_scale(X,axis=0)
+    poly = preprocessing.PolynomialFeatures(2)
+    X = poly.fit_transform(X)
+
+    # scale y
+    y = robust_scale(y.reshape(-1,1),axis=0)
 
     print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 
     simple_ridgeCV(X,y)
     #simple_linearSVR(X,y)
 
+def test():
+    x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
+    y_names = ['Calculated SPM']
+
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+    print X
+
+    Xs = robust_scale(X,axis=0)
+    #print Xs
+
+    #print y
+    ys = robust_scale(y.reshape(-1,1),axis=0)
+    #print ys
+
+    simple_ridgeCV(Xs,ys)
 
 if __name__ == '__main__':
+    #test()
     main()
