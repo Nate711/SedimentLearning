@@ -242,7 +242,6 @@ def change_polaris(locations, filename, filename_base):
 
 
 
-
 if __name__ == '__main__':
     data_dir = '../data/'
 
