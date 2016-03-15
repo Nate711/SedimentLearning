@@ -7,15 +7,15 @@ SedimentLearning
 
 **Data directory:**
 *landsat_data_UTC.csv*
-CSV containing all landsat data only matched to polaris data locations, not polaris data collection times. The column names are based off Joe's column names and are as follows:
-cf_mask_quality: quality of cloud mask
-cloud: from cf_mask tag, is the cloud mask
-landsat_scene: name of the landsat scene
-lat: corresponding lat of pixel
-long corresponding long of pixel
-reflec_1 through reflect_7: sr_band values extracted from satellite images
-station_ID: corresponding polaris location ID
-date_time_UTC: Time image was taken in UTC
+CSV containing all landsat data only matched to polaris data locations, not polaris data collection times. The column names are based off Joe's column names and are as follows:<br/>
+cf_mask_quality: quality of cloud mask <br/>
+cloud: from cf_mask tag, is the cloud mask<br/>
+landsat_scene: name of the landsat scene<br/>
+lat: corresponding lat of pixel<br/>
+long corresponding long of pixel<br/>
+reflec_1 through reflect_7: sr_band values extracted from satellite images<br/>
+station_ID: corresponding polaris location ID<br/>
+date_time_UTC: Time image was taken in UTC<br/>
 
 See: http://landsat.usgs.gov/CDR_LSR.php
 
