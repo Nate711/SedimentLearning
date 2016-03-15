@@ -17,6 +17,8 @@ reflec_1 through reflect_7: sr_band values extracted from satellite images
 station_ID: corresponding polaris location ID
 date_time_UTC: Time image was taken in UTC
 
+See: http://landsat.usgs.gov/CDR_LSR.php
+
 **Data_Formatter directory:**
 *get_data.py:*
 Methods for downloading data online or loads from local disk various remote sensing data including coast color satellite imagery, USGS
