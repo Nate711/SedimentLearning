@@ -321,6 +321,7 @@ def simple_ridgeCV(X,y):
     plt.ylabel('Actual SPM (mg/L)')
     print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
     print 'RIDGE OUTPUT: R2: ' + str(r2_score(y.tolist(),y_predict.tolist()))
+    print 'Regression: ' + str(clf.coef_)
     plt.show()
 
 def main():
@@ -359,7 +360,7 @@ def main():
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
     X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
 
