@@ -321,13 +321,13 @@ def simple_ridgeCV(X,y):
     plt.ylabel('Actual SPM (mg/L)')
     print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
     print 'RIDGE OUTPUT: R2: ' + str(r2_score(y.tolist(),y_predict.tolist()))
-    print 'Regression: ' + str(clf.coef_)
+    #print 'Regression: ' + str(clf.coef_)
     plt.show()
 
 def main():
-    """
+    '''
     Main function, must call get data then do some regression work
-    """
+    '''
 
     x_names = ['reflec_1', 'reflec_10',
            'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7', 'reflec_8',
@@ -344,33 +344,30 @@ def main():
 
     print 'CC-USGS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 
-    # scale X and make it degree 2 polynomial
+    # scale X and y and make it degree 2 polynomial
     X = robust_scale(X,axis=0)
+    y = robust_scale(y.reshape(-1,1),axis=0)
     poly = preprocessing.PolynomialFeatures(2)
     X = poly.fit_transform(X)
 
-    # scale y
-    y = robust_scale(y.reshape(-1,1),axis=0)
-
     simple_ridgeCV(X,y)
     #simple_linearSVR(X,y)
-
 
     ## DO LANDSAT REGRESSION
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
 
     X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
 
-    # scale X and make it degree 2 polynomial
-    X = robust_scale(X,axis=0)
+    # scale X and y
+    # X = robust_scale(X,axis=0)
+    # y = robust_scale(y.reshape(-1,1),axis=0)
+
+    # make it degree 2 polynomial
     poly = preprocessing.PolynomialFeatures(2)
     X = poly.fit_transform(X)
-
-    # scale y
-    y = robust_scale(y.reshape(-1,1),axis=0)
 
     print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 

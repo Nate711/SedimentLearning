@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 import pandas as pd
 import pytz
+import os
+from xml.dom import minidom
 
 
 def load_station_image_lat_long(
@@ -24,6 +26,24 @@ def load_station_image_lat_long(
     yx = dict(zip(df['Station'], yx_coors))
 
     return latlong, yx
+
+
+def get_usgs_moorings_image_lat_long():
+    '''
+    Find the pixel coordinates of the usgs moorings in the landsat images. Print the pixel coordinates
+    :return: nothing
+
+    '''
+    path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/usgs_moorings_locations.csv'
+
+    df = pd.read_csv(path)
+    coors = zip(df['Long'], df['Lat'])
+    for coor in coors:
+        result = os.popen(
+            'gdallocationinfo /Users/Nathan/Dropbox/SedimentLearning/data/landsat/LC80440342013106-SC20160218112047/LC80440342013106LGN01_sr_band1.tif -xml -wgs84 %s %s' % coor).read()
+        xmldoc = minidom.parseString(result)
+        itemlist = xmldoc.getElementsByTagName('Report')
+        print itemlist[0].attributes['pixel'].value, itemlist[0].attributes['line'].value
 
 
 def get_scene_folders(path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/'):
@@ -118,7 +138,9 @@ def get_datetime_from_metadata(metadata_path):
         return dt
 
 
-def get_data((station_locs_dict, station_image_coors_dict)):
+def get_landsat_data((station_locs_dict, station_image_coors_dict)):
+    # TODO fix description
+    # TODO change data data structure from dictionary to pandas dataframe
     '''
     :param: station_locs_dict: dictionary of station latlong coordinates with station ids as keys
     station_image_coors_dict: dict of station image x and y coordinates with station ids as keys
@@ -211,6 +233,7 @@ def get_data((station_locs_dict, station_image_coors_dict)):
 
 
 def time_and_write_landsat_data():
+    # TODO fix up description
     '''
     Parse through every landsat image to extract the reflectances, cloud data, and meta data using the get_data function.
     Then turn this data dictionary into a csv by turning it into a pandas dataframe then to csv.
@@ -223,7 +246,7 @@ def time_and_write_landsat_data():
     dict = load_station_image_lat_long()
 
     # parse through all landsat images
-    data = get_data(dict)
+    data = get_landsat_data(dict)
     print "Time to parse images and create dictionary: " + str(time.time() - before)
 
     before = time.time()
@@ -236,7 +259,60 @@ def time_and_write_landsat_data():
     print "Time to write dictionary to file: " + str(time.time() - before)
 
 
+def time_and_write_landsat_usgs_spacial_data():
+    # TODO fix up description
+    '''
+    Parse through every landsat image to extract the reflectances, cloud data, and meta data using the get_landsat_data function.
+    Only get data where usgs mooring are located!
+    Save data to csv.
+    :return:
+    '''
+    before = time.time()
+    dict = load_station_image_lat_long(
+        path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/usgs_moorings_locations.csv')
+
+    data = get_landsat_data(dict)
+    print 'Time to parse images and create dictionary corresponding to all landsat data at usgs locations: ' + str(
+        time.time() - before)
+
+    df = pd.DataFrame.from_dict(data)
+    df.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_at_usgs_data.csv', mode='wb+', index=False)
+
+
+def convert_all_usgs_to_UTC(paths=['/Users/Nathan/Dropbox/SedimentLearning/data/usgs/usgs_data_373015122071000.csv',
+                                   '/Users/Nathan/Dropbox/SedimentLearning/data/usgs/usgs_data_374938122251801.csv'],
+                            save_path='/Users/Nathan/Dropbox/SedimentLearning/data/usgs/usgs_data_373_374_UTC.csv'):
+    '''
+    Reads the polaris data csvs and returns one single pandas data frame containing the data. Add a datetime_UTC column.
+    :param paths: paths to csvs
+    :return: the dataframe. also saves to csv
+    '''
+
+    total_df = pd.DataFrame()
+    for path in paths:
+        df = pd.read_csv(path)
+        name = path[path.rfind('_') + 1:path.rfind('.csv')]  # extract the name ie 373015122071000
+
+        df['Station'] = name
+        # replace tzinfo doesn't work with pst!
+        # df['date_time_UTC'] = [datetime.strptime(x, '%Y-%m-%d %H:%M') \
+        #                       .replace(tzinfo=pytz.timezone('US/Pacific')) for x in df['datetime']]
+
+        pst = pytz.timezone('US/Pacific')
+
+        df['date_time_UTC'] = [pst.localize(datetime.strptime(x, '%Y-%m-%d %H:%M')) for x in df['datetime']]
+        df['date_time_UTC'] = [x.astimezone(pytz.utc) for x in df['date_time_UTC']]
+
+        total_df = total_df.append(df)
+        # print df.shape
+    total_df.reset_index()
+    # print total_df
+    total_df.to_csv(path_or_buf=save_path)
+    return total_df
+
+
 def convert_polaris_to_UTC():
+    # TODO fix timezone error with converting pst to utc
     '''
     Reads Joe's polaris data csv into Pandas DataFrame and then turns the US pacific times into utc times.
     Then writes to new csv. Prints execution times.
@@ -265,21 +341,26 @@ def convert_polaris_to_UTC():
     return polaris
 
 
-def convert_landsat_to_UTC():
+def convert_landsat_to_UTC(landsat_path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data.csv',
+                           save_path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data_UTC.csv'):
     '''
     Sister function to convert_polaris_to_UTC. Reads the landsat data csv and converts gmt times to utc times.
     Then writes to a new csv and times execution.
     :return: return pandas dataframe
     '''
     before = time.time()
-    data = pd.read_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data.csv')
+    data = pd.read_csv(landsat_path)
     data['date_time_UTC'] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') \
                                  .replace(tzinfo=pytz.timezone('GMT')) for x in data['date_time']]
     data['date_time_UTC'] = [x.astimezone(pytz.timezone('UTC')) for x in data['date_time_UTC']]
     data.drop('date_time', axis=1, inplace=True)
-    data.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data_UTC.csv')
+    data.to_csv(save_path)
     print 'Time to execute conversion: ' + str(time.time() - before)
     return data
+
+
+def read_usgs_to_df(usgs_utc_path='/Users/Nathan/Dropbox/SedimentLearning/data/usgs/usgs_data_373_374_UTC.csv'):
+    return pd.read_csv(usgs_utc_path, low_memory=False)
 
 
 def read_polaris_to_df(polaris_utc_path='/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv'):
@@ -304,7 +385,8 @@ def read_landsat_to_df(landsat_utc_path='/Users/Nathan/Desktop/Turbidity/Sedimen
 def create_final_filtered_csv(
         landsat_utc_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data_UTC.csv',
         polaris_utc_path='/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv',
-        save_path_base='/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered', #IMPORTANT NO CSV EXTENSION
+        save_path_base='/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered',
+        # IMPORTANT NO CSV EXTENSION
         filter_hours=24):
     '''
     Go through the landsat and polaris data and match each landsat data point to the closest (time wise) polaris data point.
@@ -385,16 +467,133 @@ def create_final_filtered_csv(
 
     # drop data where the reflectances are out of valid range: 0-10000
     for band in ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']:
-        filtered_df.drop(filtered_df.index[np.where(filtered_df[band]>10000)],inplace=True)
+        filtered_df.drop(filtered_df.index[np.where(filtered_df[band] > 10000)], inplace=True)
 
     # write to csv
-    save_path = save_path_base+'_' + str(filter_hours) + 'hr.csv'
+    save_path = save_path_base + '_' + str(filter_hours) + 'hr.csv'
     filtered_df.to_csv(save_path, mode='wb+', index=False)
 
     # return df
     return filtered_df
 
-def create_varied_cutoff_csvs(save_path_base = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered', cutoffs = [1,2,4,8,12,16,20,24]):
+
+def create_final_usgs_landsat_filtered_csv(
+        landsat_utc_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_at_usgs_data_UTC.csv',
+        usgs_utc_path='/Users/Nathan/Dropbox/SedimentLearning/data/usgs/usgs_data_373_374_UTC.csv',
+        save_path_base='/Users/Nathan/Dropbox/SedimentLearning/data/landsat_usgs_filtered/filtered',
+        filter_hours=24):
+    '''
+
+    :param landsat_utc_path:
+    :param usgs_utc_path:
+    :param save_path_base:
+    :param filter_hours:
+    :return:
+    '''
+    # get dataframes
+    landsat_df = read_landsat_to_df(landsat_utc_path)
+    usgs_df = read_usgs_to_df(usgs_utc_path)
+
+    # init filtered dataframe
+    filtered_df = landsat_df.copy()
+    filtered_df['time_diff'] = np.nan
+
+    # drop unimportant usgs keys (keep only 05_80154 and datetime_UTC)
+    usgs_df.drop(
+        ['04_63680', '04_63680_cd', '04_80154', '04_80154_cd', '04_63680', '04_63680_cd', '04_80154', '04_80154_cd',
+         '05_80154_cd', '06_63680', '06_63680_cd', '07_63680', '07_63680_cd', 'datetime', 'tz_cd'],axis=1,inplace=True)
+
+    # put all the polaris keys into the filtered df
+    for key in usgs_df.keys():
+        if key not in landsat_df.keys():
+            filtered_df[key] = np.nan
+
+    # convert the date_time string representations to actual datetime objects
+    # Important: because %z (utc offset string) is not a supported directive on python 2.7 I truncate the utc offset which is 0
+    landsat_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in landsat_df['date_time_UTC']]
+    usgs_df['date_time_UTC'] = [datetime.strptime(x[:-6], '%Y-%m-%d %H:%M:%S') for x in usgs_df['date_time_UTC']]
+
+    # Set the landsat_utc column
+    filtered_df['landsat_UTC'] = landsat_df['date_time_UTC']
+    filtered_df['usgs_UTC'] = np.nan
+
+    landsat_df['station_ID'] = landsat_df['station_ID'].astype(str)
+    usgs_df['Station'] = usgs_df['Station'].astype(str)
+
+
+    # loop through each polaris station (data collection site)
+    # TODO last usgs not included in usgs df
+    for station in landsat_df['station_ID'].unique():
+        if station not in usgs_df['Station']:
+            continue
+
+        # create a new dataframe with only data from that location
+        landsat_subset_df = landsat_df[landsat_df['station_ID'] == station]
+        #print landsat_subset_df['station_ID']
+        #print usgs_df['Station']
+
+        # TODO fix inconsistency between usgs's 'station' identifier and polaris' 'station number' identifier
+        # TODO fix this expression it isn't working, mismatched data types?
+        # TODO fix how digits were getting cut off!
+        usgs_subset_df = usgs_df[usgs_df['Station'] == station]
+        print 'usgs subset'
+        print usgs_subset_df
+
+        print 'landsat subset'
+        print landsat_subset_df
+
+        # counts how many data points we've written for this station
+        count = 0
+
+        # loop through each data point in the landsat subset
+        for idx, date_time in zip(landsat_subset_df.index, landsat_subset_df['date_time_UTC']):
+            # print progress
+            print '{} / {} for location {}'.format(count, len(landsat_subset_df), station)
+            count += 1
+
+            # calculate and copy over time difference
+            #print usgs_subset_df
+            time_diff = np.abs(date_time - usgs_subset_df['date_time_UTC'])
+
+            # find index of smallest time difference
+            index_smallest = np.argmin(time_diff)
+            filtered_df.loc[idx, 'time_diff'] = time_diff[index_smallest]
+
+            # copy polaris data over to landsat data
+            for key in usgs_df.keys():
+                if key == 'date_time_UTC': break
+                filtered_df.loc[idx, key] = usgs_subset_df.loc[index_smallest, key]
+
+            # copy polaris date_time
+            filtered_df.loc[idx, 'usgs_UTC'] = usgs_subset_df.loc[index_smallest, key]
+
+    # drop the date_time_UTC column b/c it is equiv to landsat_UTC column
+    filtered_df.drop('date_time_UTC', axis=1, inplace=True)
+
+    print filtered_df
+
+    # drop the date time columns from polaris data
+    # filtered_df.drop('Date', axis=1, inplace=True)
+    # filtered_df.drop('Time', axis=1, inplace=True)
+
+    # IMPORTANT
+    # filter data for time differences < filter_hours parameter
+    filtered_df = filtered_df[filtered_df.time_diff < timedelta(hours=filter_hours)]
+
+    # drop data where the reflectances are out of valid range: 0-10000
+    for band in ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']:
+        filtered_df.drop(filtered_df.index[np.where(filtered_df[band] > 10000)], inplace=True)
+
+    # write to csv
+    save_path = save_path_base + '_' + str(filter_hours) + 'hr.csv'
+    filtered_df.to_csv(save_path, mode='wb+', index=False)
+
+    # return df
+    return filtered_df
+
+def create_varied_cutoff_csvs(
+        save_path_base='/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered',
+        cutoffs=[1, 2, 4, 8, 12, 16, 20, 24]):
     '''
     Uses the filtered landsat/polaris csv with the 24 hr cutoff to create new csvs from it with different time cutoffs
     :param save_path_base: base file path without the cutoff or csv extension
@@ -405,15 +604,15 @@ def create_varied_cutoff_csvs(save_path_base = '/Users/Nathan/Dropbox/SedimentLe
 
     df['landsat_UTC'] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') for x in df['landsat_UTC']]
     df['polaris_UTC'] = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') for x in df['polaris_UTC']]
-    df['time_diff'] = np.abs(df['landsat_UTC']-df['polaris_UTC'])
+    df['time_diff'] = np.abs(df['landsat_UTC'] - df['polaris_UTC'])
 
     # drop data where the reflectances are out of valid range: 1-10000
     for band in ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']:
-        df.drop(df.index[np.where(df[band]>10000)],inplace=True)
+        df.drop(df.index[np.where(df[band] > 10000)], inplace=True)
 
     for cutoff in cutoffs:
         filtered_df = df[df.time_diff < timedelta(hours=cutoff)]
-        filtered_df.to_csv(save_path_base + '_' + str(cutoff) + 'hr.csv',index=False)
+        filtered_df.to_csv(save_path_base + '_' + str(cutoff) + 'hr.csv', index=False)
 
 
 if __name__ == '__main__':
@@ -422,6 +621,16 @@ if __name__ == '__main__':
     # print read_polaris_to_df()
     # print read_landsat_to_df()
 
-    #filtered = create_final_filtered_csv()
-    #print filtered
-    #create_varied_cutoff_csvs()
+    # filtered = create_final_filtered_csv()
+    # print filtered
+    # create_varied_cutoff_csvs()
+
+
+    # procedure for matching landsat data with usgs data:
+
+    # get_usgs_moorings_image_lat_long()
+    # convert_all_usgs_to_UTC()
+    # time_and_write_landsat_usgs_spacial_data()
+    # convert_landsat_to_UTC(landsat_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_at_usgs_data.csv',
+    #                        save_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_at_usgs_data_UTC.csv')
+    create_final_usgs_landsat_filtered_csv()
