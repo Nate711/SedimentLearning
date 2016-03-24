@@ -28,22 +28,21 @@ def load_station_image_lat_long(
     return latlong, yx
 
 
-def get_usgs_moorings_image_lat_long():
+def get_image_xy_in_scene_for_lat_long(path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/usgs_moorings_locations.csv'):
     '''
     Find the pixel coordinates of the usgs moorings in the landsat images. Print the pixel coordinates
     :return: nothing
 
     '''
-    path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/usgs_moorings_locations.csv'
 
     df = pd.read_csv(path)
-    coors = zip(df['Long'], df['Lat'])
-    for coor in coors:
+    coors = zip(df['Station'],df['Long'], df['Lat'])
+    for station,long,lat in coors:
         result = os.popen(
-            'gdallocationinfo /Users/Nathan/Dropbox/SedimentLearning/data/landsat/LC80440342013106-SC20160218112047/LC80440342013106LGN01_sr_band1.tif -xml -wgs84 %s %s' % coor).read()
+            'gdallocationinfo /Users/Nathan/Dropbox/SedimentLearning/data/landsat/LC80440342013106-SC20160218112047/LC80440342013106LGN01_sr_band1.tif -xml -wgs84 %s %s' % (long,lat)).read()
         xmldoc = minidom.parseString(result)
         itemlist = xmldoc.getElementsByTagName('Report')
-        print itemlist[0].attributes['pixel'].value, itemlist[0].attributes['line'].value
+        print 'Station: {}   X: {}   Y: {}'.format(station,itemlist[0].attributes['pixel'].value, itemlist[0].attributes['line'].value)
 
 
 def get_scene_folders(path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/'):
@@ -311,8 +310,11 @@ def convert_all_usgs_to_UTC(paths=['/Users/Nathan/Dropbox/SedimentLearning/data/
     return total_df
 
 
+# Filtered data produced on 3/3/16 may be incorrect because of timezone shifting
+# TODO fix timezone error with converting pst to utc
+# TODO polaris UTC data created on 3/3/16 off by about 1 hr!!! new code fixes this
 def convert_polaris_to_UTC():
-    # TODO fix timezone error with converting pst to utc
+
     '''
     Reads Joe's polaris data csv into Pandas DataFrame and then turns the US pacific times into utc times.
     Then writes to new csv. Prints execution times.
@@ -328,13 +330,19 @@ def convert_polaris_to_UTC():
     # combine date and time cols
     polaris['date_time_UTC'] = polaris.Date + ' ' + polaris.Time
 
+
+    # set up pst timezone
+    PST = pytz.timezone('US/Pacific')
+
     # strip spaces off of date_time
     # convert to date_time
-    # convert PST to UTC
-    polaris['date_time_UTC'] = [datetime.strptime(x.strip(), '%m/%d/%Y %H%M') \
-                                    .replace(tzinfo=pytz.timezone('US/Pacific')) for x in polaris.date_time_UTC]
+    # localize to pst
+    polaris['date_time_UTC'] = [PST.localize(datetime.strptime(x.strip(),'%m/%d/%Y %H%M')) for x in polaris.date_time_UTC]
 
+    #convert to UTC
     polaris['date_time_UTC'] = [x.astimezone(pytz.timezone('UTC')) for x in polaris.date_time_UTC]
+
+    # save to csv
     polaris.to_csv('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv', mode='wb+',
                    index=False)
     print 'Time to execute conversion: ' + str(time.time() - before)
@@ -477,6 +485,8 @@ def create_final_filtered_csv(
     return filtered_df
 
 
+# TODO DOESN'T WORK: FIX USGS FILTERING NOT WORKING: WEIRD ERROR WITH DATAFRAME DATA TYPES NOT MATCHING AND EMPTY DATAFRAMES
+# TODO may have something to do with how the usgs_data_373_374_UTC file doesn't include data for the 375 spot
 def create_final_usgs_landsat_filtered_csv(
         landsat_utc_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_at_usgs_data_UTC.csv',
         usgs_utc_path='/Users/Nathan/Dropbox/SedimentLearning/data/usgs/usgs_data_373_374_UTC.csv',
@@ -618,19 +628,21 @@ def create_varied_cutoff_csvs(
 if __name__ == '__main__':
     data_columns = ['date_time', 'cf_mask_quality', 'cloud', 'station_ID', 'lat', 'long', 'landsat_scene', 'reflec_1',
                     'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']
-    # print read_polaris_to_df()
-    # print read_landsat_to_df()
-
-    # filtered = create_final_filtered_csv()
-    # print filtered
-    # create_varied_cutoff_csvs()
 
 
-    # procedure for matching landsat data with usgs data:
+    ### workflow for creating landsat/polaris data
+    # get_image_xy_in_scene_for_lat_long(path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/station_img_coordinates.csv')
+    # time_and_write_landsat_data()
+    # convert_polaris_to_UTC()
+    filtered = create_final_filtered_csv()
+    print filtered
+    create_varied_cutoff_csvs()
 
+
+    #### procedure for matching landsat data with usgs data:
     # get_usgs_moorings_image_lat_long()
     # convert_all_usgs_to_UTC()
     # time_and_write_landsat_usgs_spacial_data()
     # convert_landsat_to_UTC(landsat_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_at_usgs_data.csv',
     #                        save_path='/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_at_usgs_data_UTC.csv')
-    create_final_usgs_landsat_filtered_csv()
+    # create_final_usgs_landsat_filtered_csv()
