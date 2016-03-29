@@ -136,6 +136,36 @@ def get_datetime_from_metadata(metadata_path):
         dt = datetime.strptime(date_time_string, "%Y-%m-%d %H:%M:%S")
         return dt
 
+def get_landsat_spacecraft_ID(scene_folder):
+    '''
+    Get the spacecraft id (ie Landsat 8) from the name of the scene
+    For example: /Users/Nathan/Dropbox/SedimentLearning/data/landsat/LC80440342014077-SC20160218112617
+    indicates that the spacecraft is landsat_8 from the LC8 identifier
+    :param scene_folder: full path to scene folder
+    :return: name, ie "LANDSAT_8"
+    '''
+
+    full_name = scene_folder[scene_folder.rfind("/")+1:]
+    number = full_name[2]
+    return 'LANDSAT_{}'.format(number)
+
+def convert_landsat8_band_to_landsat457_band(band):
+    '''
+    landsat 8 band | wavelength | landsat 4,5,7 band
+    1 | 430-450 | none
+    2 | 450-510 blue  | 1
+    3 | 530-590 green | 2
+    4 | 640-670 red   | 3
+    5 | 805-880 NIR   | 4
+    6 | 1570-1650 SWIR| 5
+    7 | 2110 - 2290 SWIR 2 | 7
+    8 | 500-680 panchromatic | 8
+    none | IR | 6
+    :param band: landsat 8 band
+    :return: landsat 4,5,7 band
+    '''
+    mapping = {1:0,2:1,3:2,4:3,5:4,6:5,7:7}
+    return mapping[band]
 
 def get_landsat_data((station_locs_dict, station_image_coors_dict)):
     # TODO fix description
@@ -168,6 +198,8 @@ def get_landsat_data((station_locs_dict, station_image_coors_dict)):
         sr_paths = get_sr_band_imgs(imgs)
         cf_path = get_cfmask(imgs)
         cloud_path = get_cloud(imgs)
+
+        spacecraft_ID = get_landsat_spacecraft_ID(scene_folder)
 
         # get the name of the scene extracted from cf path
         scene_name = cf_path[cf_path.rfind('/') + 1:cf_path.rfind('_')]
@@ -206,6 +238,11 @@ def get_landsat_data((station_locs_dict, station_image_coors_dict)):
         for sr_file in sr_paths:  # must record which band it is somewhere
             sr = cv2.imread(sr_file, cv2.IMREAD_ANYDEPTH)
             band = int(sr_file[sr_file.find('.tif') - 1])  # get band number
+
+            # IMPORTANT: convert landsat 8 band numbers to landsat 4,5,7 bands
+            if(spacecraft_ID == 'LANDSAT_8'):
+                band = convert_landsat8_band_to_landsat457_band(band)
+
             band_key = 'reflec_{}'.format(band)
 
             unwritten_bands.remove(band_key)
@@ -624,19 +661,29 @@ def create_varied_cutoff_csvs(
         filtered_df = df[df.time_diff < timedelta(hours=cutoff)]
         filtered_df.to_csv(save_path_base + '_' + str(cutoff) + 'hr.csv', index=False)
 
+def remove_data_where_cloud_cover(filtered_csv_path = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_*'):
+    paths = glob.glob(filtered_csv_path)
+
+    for path in paths:
+        df = pd.read_csv(path)
+
+        df = df[df.cloud == 0]
+        df.to_csv(path,index=False)
+
 
 if __name__ == '__main__':
     data_columns = ['date_time', 'cf_mask_quality', 'cloud', 'station_ID', 'lat', 'long', 'landsat_scene', 'reflec_1',
                     'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']
 
 
-    ### workflow for creating landsat/polaris data
+    #### workflow for creating landsat/polaris data
     # get_image_xy_in_scene_for_lat_long(path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/station_img_coordinates.csv')
     # time_and_write_landsat_data()
     # convert_polaris_to_UTC()
-    filtered = create_final_filtered_csv()
-    print filtered
-    create_varied_cutoff_csvs()
+    # filtered = create_final_filtered_csv()
+    # print filtered
+    # create_varied_cutoff_csvs()
+    # remove_data_where_cloud_cover()
 
 
     #### procedure for matching landsat data with usgs data:

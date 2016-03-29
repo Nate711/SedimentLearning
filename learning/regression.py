@@ -15,6 +15,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import robust_scale
 from sklearn import preprocessing
+from itertools import combinations
 
 
 # All possible inputs (Some are integer flags that should not be used)
@@ -321,18 +322,32 @@ def simple_ridgeCV(X,y):
     plt.ylabel('Actual SPM (mg/L)')
     print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
     print 'RIDGE OUTPUT: R2: ' + str(r2_score(y.tolist(),y_predict.tolist()))
-    #print 'Regression: ' + str(clf.coef_)
+    print 'Regression: ' + str(clf.coef_)
     plt.show()
+
+def division_feature_expansion(X):
+    xt =  X.T
+
+    indices = np.arange(X.shape[1])
+    for (a,b) in combinations(indices,2):
+        offset = 1 # avoid divide by zero errors???
+        xt = np.append(xt,[(xt[a] + offset)/(xt[b] + offset)],axis=0)
+
+    return xt.T
+
+
 
 def main():
     '''
     Main function, must call get data then do some regression work
     '''
 
+    '''
+    ##### do regression with coastcolor and polaris data
     x_names = ['reflec_1', 'reflec_10',
            'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7', 'reflec_8',
            'reflec_9']
-    y_names = ['05_80154']
+    y_names = ['Calculated SPM']
 
     # grabs all the filenames of csvs inside data/full/
     # polaris11.csv, usgs...csv, etc
@@ -340,34 +355,33 @@ def main():
     mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
     filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
 
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames = filenames,Y_CODE = '05_80154')
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames = filenames,Y_CODE = 'Calculated SPM')
 
     print 'CC-USGS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 
-    # scale X and y and make it degree 2 polynomial
-    X = robust_scale(X,axis=0)
-    y = robust_scale(y.reshape(-1,1),axis=0)
-    poly = preprocessing.PolynomialFeatures(2)
-    X = poly.fit_transform(X)
-
     simple_ridgeCV(X,y)
     #simple_linearSVR(X,y)
+    '''
+
 
     ## DO LANDSAT REGRESSION
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
     X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+    X = division_feature_expansion(X)
 
     # scale X and y
     # X = robust_scale(X,axis=0)
     # y = robust_scale(y.reshape(-1,1),axis=0)
 
+    '''
     # make it degree 2 polynomial
     poly = preprocessing.PolynomialFeatures(2)
     X = poly.fit_transform(X)
+    '''
 
     print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 
@@ -381,7 +395,6 @@ def test():
     filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
     X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
-    print X
 
     Xs = robust_scale(X,axis=0)
     #print Xs
@@ -395,3 +408,23 @@ def test():
 if __name__ == '__main__':
     #test()
     main()
+
+''' NOTES
+Ridge with 8hr landsat polaris data without division features:
+R2 = .293
+
+coeffs
+[-0.0911004   0.02210368 -0.02898023 -0.03669951 -0.08078736  0.21832104]
+
+
+Ridge with 8hr landsat polaris data with division features:
+R2 = .298
+
+coeffs, divisions feature weights are quite small
+[ -9.15334879e-02   2.35789838e-02  -3.01392975e-02  -3.69621953e-02 -8.06454136e-02   2.18712566e-01
+ 1.84183934e-01   1.06010624e-02
+  -3.39367896e-03  -2.31273956e-03  -2.97999485e-03  -2.25243609e-02
+  -3.00992840e-03  -2.20057625e-03  -2.43230700e-03  -8.18643396e-04
+  -5.68472257e-04  -1.18759833e-04   6.50953814e-04   6.07126177e-04
+  -6.31267163e-04]
+  '''
