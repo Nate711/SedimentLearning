@@ -306,7 +306,7 @@ def simple_ridgeCV(X,y):
     :param y: output
     :return: nothing
     '''
-    log_alphas = np.array(np.arange(-15,15,0.5),dtype='float64')
+    log_alphas = np.array(np.arange(-15,15,0.25),dtype='float64')
     alphas = 2**log_alphas
     clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
 
@@ -316,14 +316,7 @@ def simple_ridgeCV(X,y):
 
     y_predict = clf.predict(X)
 
-    plt.plot(y_predict,y,'.k')
-    plt.title('Actual SPM vs Predicted SPM (Ridge)')
-    plt.xlabel('Predicted SPM (mg/L)')
-    plt.ylabel('Actual SPM (mg/L)')
-    print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
-    print 'RIDGE OUTPUT: R2: ' + str(r2_score(y.tolist(),y_predict.tolist()))
-    print 'Regression: ' + str(clf.coef_)
-    plt.show()
+    graph_actual_SPM_vs_predicted_SPM(y,y_predict)
 
 def division_feature_expansion(X):
     xt =  X.T
@@ -335,8 +328,106 @@ def division_feature_expansion(X):
 
     return xt.T
 
+def EA_MB():
+    # log10(SPM) = c0 + c1*x1 + c2*x2
+    # x1 = Rrs(lambda1) + Rrs(lambda2) sensitive to spm
+    # x2 = Rrs(lambda3)/Rrs(lambda1) compensating term
+    # lambda 1 = green (555) = band2 for landsat 457, lambda 2 = red (670) = band3 for landsat 457,
+    # lanbda3 = blue (490) = band1 for landsat 457
+    x_names = ['reflec_1','reflec_2','reflec_3']
+    y_names = ['Calculated SPM']
+
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+    # X col 0 is band1, col 1 is band2, col 2 is band3
+    # so lambda1 is col 1, lambda2 is col 2, lambda3 is col 0
+
+    logy = np.log10(y)
+
+    X = X.T # got to get that transpose
+
+    X1 = X[1]+X[2]
+    X2 = np.divide(X[0],X[1])
+    C0 = np.ones(X2.size)
+
+    # wrong alg that worked better
+    '''
+    X1 = X[0]+X[1]
+    X2 = np.divide(X[2],X[1])
+    '''
 
 
+    new_X = np.array([C0,X1,X2]).T
+
+    # start ridge CV for log data
+    log_alphas = np.array(np.arange(-15,15,0.25),dtype='float64')
+    alphas = 2**log_alphas
+    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
+    clf.fit(new_X,logy)
+
+
+    y_predict = clf.predict(new_X)
+    print('EA-MB log regression')
+    graph_actual_SPM_vs_predicted_SPM(logy,y_predict)
+
+    y_predict_normal = np.power(10,y_predict)
+
+    print('EA-MB regression')
+    graph_actual_SPM_vs_predicted_SPM(y,y_predict_normal)
+
+def EA_BR():
+    '''
+    spm = a0 * exp(a1*X)
+    X1 = Rrs(lambda1)/Rrs(lambda2)
+    lambda1 is near IR 865nm -> band 4
+    lambda2 is green 555nm -> band 2
+
+    do log(spm) = log(a0) + a1*X?
+    :return:
+    '''
+    x_names = ['reflec_2','reflec_4']
+    # col 0 is lambda2, col 1 is lambda 1
+    y_names = ['Calculated SPM']
+
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE=y_names[0])
+
+    X1 = np.divide(X[:,1],X[:,0])
+
+    logy = np.log10(y)
+    A0 = np.ones(logy.shape)
+
+    new_X = np.array([A0,X1]).T
+    print new_X
+    print logy
+
+    log_alphas = np.array(np.arange(-15,15,0.25),dtype='float64')
+    alphas = 2**log_alphas
+    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
+    clf.fit(new_X,logy)
+
+    y_predict = clf.predict(new_X)
+    print('EA-BR log regression')
+    graph_actual_SPM_vs_predicted_SPM(logy,y_predict)
+
+    y_predict_normal = np.power(10,y_predict)
+
+    print('EA-BR regression')
+    graph_actual_SPM_vs_predicted_SPM(y,y_predict_normal)
+
+
+def graph_actual_SPM_vs_predicted_SPM(actual,predicted):
+    plt.plot(predicted,actual,'.k')
+    plt.title('Actual SPM vs Predicted SPM (Ridge)')
+    plt.xlabel('Predicted SPM (mg/L)')
+    plt.ylabel('Actual SPM (mg/L)')
+    print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(actual, predicted.tolist())))
+    print 'RIDGE OUTPUT: R2: ' + str(r2_score(actual.tolist(),predicted.tolist()))
+    x_line = np.linspace(0,np.amax(predicted),10)
+    y_line = x_line
+    plt.plot(x_line,y_line,'-r')
+    plt.show()
 def main():
     '''
     Main function, must call get data then do some regression work
@@ -371,17 +462,19 @@ def main():
     filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
     X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
-    X = division_feature_expansion(X)
+
+    # add features for ratios between bands
+    # X = division_feature_expansion(X)
 
     # scale X and y
     # X = robust_scale(X,axis=0)
     # y = robust_scale(y.reshape(-1,1),axis=0)
 
-    '''
+
     # make it degree 2 polynomial
-    poly = preprocessing.PolynomialFeatures(2)
+    poly = preprocessing.PolynomialFeatures(1)
     X = poly.fit_transform(X)
-    '''
+
 
     print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
 
@@ -407,7 +500,11 @@ def test():
 
 if __name__ == '__main__':
     #test()
-    main()
+    #main()
+    ## DO LANDSAT REGRESSION
+
+    # EA_MB()
+    EA_BR()
 
 ''' NOTES
 Ridge with 8hr landsat polaris data without division features:
@@ -427,4 +524,10 @@ coeffs, divisions feature weights are quite small
   -3.00992840e-03  -2.20057625e-03  -2.43230700e-03  -8.18643396e-04
   -5.68472257e-04  -1.18759833e-04   6.50953814e-04   6.07126177e-04
   -6.31267163e-04]
+
+
+EA-MB regression
+R2 for 8hr data: .196 on log regression, .00489 on actual regrssion
+
+R2 for 2hr data: .142 on log regression, .00186 on actual regression
   '''
