@@ -139,14 +139,15 @@ def get_datetime_from_metadata(metadata_path):
 def get_landsat_spacecraft_ID(scene_folder):
     '''
     Get the spacecraft id (ie Landsat 8) from the name of the scene
-    For example: /Users/Nathan/Dropbox/SedimentLearning/data/landsat/LC80440342014077-SC20160218112617
+    For example: /Users/Nathan/Dropbox/SedimentLearning/data/landsat/LC80440342014077-SC20160218112617/
     indicates that the spacecraft is landsat_8 from the LC8 identifier
     :param scene_folder: full path to scene folder
     :return: name, ie "LANDSAT_8"
     '''
 
-    full_name = scene_folder[scene_folder.rfind("/")+1:]
-    number = full_name[2]
+    # just get the scene name by searching for the 2nd / from the right
+    scene_name = scene_folder[scene_folder[:-1].rfind("/")+1:]
+    number = scene_name[2]
     return 'LANDSAT_{}'.format(number)
 
 def convert_landsat8_band_to_landsat457_band(band):
@@ -164,7 +165,7 @@ def convert_landsat8_band_to_landsat457_band(band):
     :param band: landsat 8 band
     :return: landsat 4,5,7 band
     '''
-    mapping = {1:0,2:1,3:2,4:3,5:4,6:5,7:7}
+    mapping = {1:None,2:1,3:2,4:3,5:4,6:5,7:7}
     return mapping[band]
 
 def get_landsat_data((station_locs_dict, station_image_coors_dict)):
@@ -199,6 +200,7 @@ def get_landsat_data((station_locs_dict, station_image_coors_dict)):
         cf_path = get_cfmask(imgs)
         cloud_path = get_cloud(imgs)
 
+        #print scene_folder
         spacecraft_ID = get_landsat_spacecraft_ID(scene_folder)
 
         # get the name of the scene extracted from cf path
@@ -243,8 +245,13 @@ def get_landsat_data((station_locs_dict, station_image_coors_dict)):
             if(spacecraft_ID == 'LANDSAT_8'):
                 band = convert_landsat8_band_to_landsat457_band(band)
 
-            band_key = 'reflec_{}'.format(band)
+            # skip if sr_band1 (430-450nm) on landsat 8 b/c it has no match for landsat 4,5,7
+            if band == None:
+                continue
 
+            band_key = 'reflec_{}'.format(band)
+            #print unwritten_bands
+            #print band_key
             unwritten_bands.remove(band_key)
 
             # put the reflectance into the dict, append it to the end
@@ -289,7 +296,7 @@ def time_and_write_landsat_data():
 
     # turn to pandas dataframe
     df = pd.DataFrame.from_dict(data)
-
+    df = remove_data_where_cloud_cover_df(df)
     # write to csv
     df.to_csv('/Users/Nathan/Desktop/Turbidity/SedimentLearning/data/landsat_data.csv', mode='wb+', index=False)
     print "Time to write dictionary to file: " + str(time.time() - before)
@@ -514,6 +521,10 @@ def create_final_filtered_csv(
     for band in ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']:
         filtered_df.drop(filtered_df.index[np.where(filtered_df[band] > 10000)], inplace=True)
 
+
+    # remove data which is covered by clouds
+    filtered_df = remove_data_where_cloud_cover_df(filtered_df)
+
     # write to csv
     save_path = save_path_base + '_' + str(filter_hours) + 'hr.csv'
     filtered_df.to_csv(save_path, mode='wb+', index=False)
@@ -660,14 +671,16 @@ def create_varied_cutoff_csvs(
     for cutoff in cutoffs:
         filtered_df = df[df.time_diff < timedelta(hours=cutoff)]
         filtered_df.to_csv(save_path_base + '_' + str(cutoff) + 'hr.csv', index=False)
+def remove_data_where_cloud_cover_df(df):
+    return df[df.cloud==0]
 
-def remove_data_where_cloud_cover(filtered_csv_path = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_*'):
+def remove_data_where_cloud_cover_csv(filtered_csv_path = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_*'):
     paths = glob.glob(filtered_csv_path)
 
     for path in paths:
         df = pd.read_csv(path)
 
-        df = df[df.cloud == 0]
+        df = remove_data_where_cloud_cover_df(df)
         df.to_csv(path,index=False)
 
 
@@ -680,13 +693,13 @@ if __name__ == '__main__':
     # get_image_xy_in_scene_for_lat_long(path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/station_img_coordinates.csv')
     # time_and_write_landsat_data()
     # convert_polaris_to_UTC()
+    # convert_landsat_to_UTC()
     # filtered = create_final_filtered_csv()
     # print filtered
     # create_varied_cutoff_csvs()
-    # remove_data_where_cloud_cover()
 
 
-    #### procedure for matching landsat data with usgs data:
+    #### workflow for matching landsat data with usgs data:
     # get_usgs_moorings_image_lat_long()
     # convert_all_usgs_to_UTC()
     # time_and_write_landsat_usgs_spacial_data()
