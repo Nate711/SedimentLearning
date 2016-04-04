@@ -135,6 +135,7 @@ def kfolds_ridge(x_data1, y_data1, param):
     return np.mean(errors)
 
 def get_data(x_names,y_names,filenames,Y_CODE):
+    #TODO use pandas csv reader methods instead of for loop weirdness
     """
     Read in data from csv files.
 
@@ -507,6 +508,18 @@ if __name__ == '__main__':
     EA_BR()
 
 ''' NOTES
+
+landsat 8 band | wavelength | landsat 4,5,7 band
+    1 | 430-450 | none
+    2 | 450-510 blue  | 1
+    3 | 530-590 green | 2
+    4 | 640-670 red   | 3
+    5 | 805-880 NIR   | 4
+    6 | 1570-1650 SWIR| 5
+    7 | 2110 - 2290 SWIR 2 | 7
+    8 | 500-680 panchromatic | 8
+    none | IR | 6
+
 Ridge with 8hr landsat polaris data without division features:
 R2 = .293
 

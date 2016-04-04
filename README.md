@@ -3,7 +3,38 @@ SedimentLearning
 
 **CS 229 Project: Understanding Remote Sensing Turbidity Data in San Francisco Bay**
 
-*Modified by Nathan Kau (Intern)*
+*Modified by Nathan Kau (Joe's High School Underling :)*
+
+**Info on Landsat and Meris data**
+*Landsat bands*
+http://landsat.usgs.gov/best_spectral_bands_to_use.php
+landsat 8 band | wavelength           | landsat 4,5,7 band
+             1 | 430-450              | none
+             2 | 450-510 blue         | 1
+             3 | 530-590 green        | 2
+             4 | 640-670 red          | 3
+             5 | 805-880 NIR          | 4
+             6 | 1570-1650 SWIR       | 5
+             7 | 2110 - 2290 SWIR 2   | 7
+             8 | 500-680 panchromatic | 8
+          none | IR                   | 6
+*Meris (Coast color) bands*
+http://www.coastcolour.org/publications/Coastcolour-PUG-v2.2.pdf
+page 28
+Meris band  |  wavelength
+         1  |  413
+         2  |  443
+         3  |  490
+         4  |  510
+         5  |  560
+         6  |  620
+         7  |  665
+         8  |  681
+         9  |  708
+         10 |  753
+         12 |  778
+         13 |  865
+
 
 **Data directory:**
 *landsat_data_UTC.csv*
