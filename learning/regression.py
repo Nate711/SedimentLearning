@@ -328,36 +328,18 @@ def division_feature_expansion(X):
         xt = np.append(xt,[(xt[a] + offset)/(xt[b] + offset)],axis=0)
 
     return xt.T
-
-def EA_MB():
+def EA_MB(lambda1, lambda2, lambda3, spm):
     # log10(SPM) = c0 + c1*x1 + c2*x2
     # x1 = Rrs(lambda1) + Rrs(lambda2) sensitive to spm
     # x2 = Rrs(lambda3)/Rrs(lambda1) compensating term
     # lambda 1 = green (555) = band2 for landsat 457, lambda 2 = red (670) = band3 for landsat 457,
     # lanbda3 = blue (490) = band1 for landsat 457
-    x_names = ['reflec_1','reflec_2','reflec_3']
-    y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    logy = np.log10(spm)
 
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
-    # X col 0 is band1, col 1 is band2, col 2 is band3
-    # so lambda1 is col 1, lambda2 is col 2, lambda3 is col 0
-
-    logy = np.log10(y)
-
-    X = X.T # got to get that transpose
-
-    X1 = X[1]+X[2]
-    X2 = np.divide(X[0],X[1])
-    C0 = np.ones(X2.size)
-
-    # wrong alg that worked better
-    '''
-    X1 = X[0]+X[1]
-    X2 = np.divide(X[2],X[1])
-    '''
-
+    X1 = lambda1+lambda2
+    X2 = np.divide(lambda3,lambda1)
+    C0 = np.ones(lambda1.size)
 
     new_X = np.array([C0,X1,X2]).T
 
@@ -375,7 +357,39 @@ def EA_MB():
     y_predict_normal = np.power(10,y_predict)
 
     print('EA-MB regression')
-    graph_actual_SPM_vs_predicted_SPM(y,y_predict_normal)
+    graph_actual_SPM_vs_predicted_SPM(spm,y_predict_normal)
+def EA_MB_LANDSAT():
+    # log10(SPM) = c0 + c1*x1 + c2*x2
+    # x1 = Rrs(lambda1) + Rrs(lambda2) sensitive to spm
+    # x2 = Rrs(lambda3)/Rrs(lambda1) compensating term
+    # lambda 1 = green (555) = band2 for landsat 457, lambda 2 = red (670) = band3 for landsat 457,
+    # lanbda3 = blue (490) = band1 for landsat 457
+    x_names = ['reflec_1','reflec_2','reflec_3']
+    y_names = ['Calculated SPM']
+
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+    # X col 0 is band1, col 1 is band2, col 2 is band3
+    # so lambda1 is col 1, lambda2 is col 2, lambda3 is col 0
+
+    EA_MB(X[:,1],X[:,2],X[:,0],y)
+def EA_MB_MERIS():
+    # log10(SPM) = c0 + c1*x1 + c2*x2
+    # x1 = Rrs(lambda1) + Rrs(lambda2) sensitive to spm
+    # x2 = Rrs(lambda3)/Rrs(lambda1) compensating term
+    # lambda 1 = green (555) = band2 for landsat 457, lambda 2 = red (670) = band3 for landsat 457,
+    # lanbda3 = blue (490) = band1 for landsat 457
+    x_names = ['reflec_3','reflec_5','reflec_7']
+    y_names = ['Calculated SPM']
+
+    mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
+    filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
+    #filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+
+    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+
+    EA_MB(lambda1=X[:,1],lambda2=X[:,2],lambda3=X[:,0],spm=y)
 
 def EA_BR():
     '''
@@ -416,8 +430,6 @@ def EA_BR():
 
     print('EA-BR regression')
     graph_actual_SPM_vs_predicted_SPM(y,y_predict_normal)
-
-
 def graph_actual_SPM_vs_predicted_SPM(actual,predicted):
     plt.plot(predicted,actual,'.k')
     plt.title('Actual SPM vs Predicted SPM (Ridge)')
@@ -504,8 +516,9 @@ if __name__ == '__main__':
     #main()
     ## DO LANDSAT REGRESSION
 
-    # EA_MB()
-    EA_BR()
+    EA_MB_LANDSAT()
+    EA_MB_MERIS()
+    # EA_BR()
 
 ''' NOTES
 
