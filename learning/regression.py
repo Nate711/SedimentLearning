@@ -5,18 +5,12 @@ __author__ = 'jadelson'
 import csv
 from os import listdir
 from os.path import isfile, join
-
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn import cross_validation
-from sklearn import linear_model
-from sklearn import svm
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import r2_score
+from sklearn import cross_validation, linear_model, svm
+from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import robust_scale
-from sklearn import preprocessing
-from itertools import combinations
-
+from itertools import combinations, permutations
 
 # All possible inputs (Some are integer flags that should not be used)
 '''
@@ -79,10 +73,10 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_al
     # fits the linear ridge model, scikit makes it all easy
     clf = linear_model.Ridge(alpha=this_alpha)
     clf.fit(x_train, y_train)
-    #print clf.coef_
+    # print clf.coef_
 
-    #print clf
-    #print x_test.shape
+    # print clf
+    # print x_test.shape
     y_pred = clf.predict(x_test)
 
     plt.plot(y_pred, y_test, 'ok')
@@ -93,11 +87,12 @@ def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_al
     # is this a valid way of checking for a save? should use a flag?
     if save_name is not np.nan:
         plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/' + save_name)
-        #plt.show()
+        # plt.show()
 
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
            mean_squared_error(y_train.tolist(), clf.predict(x_train).tolist()), \
            y_pred, clf.predict(x_train)
+
 
 def kfolds_ridge(x_data1, y_data1, param):
     """
@@ -134,8 +129,9 @@ def kfolds_ridge(x_data1, y_data1, param):
         i += 1
     return np.mean(errors)
 
-def get_data(x_names,y_names,filenames,Y_CODE):
-    #TODO use pandas csv reader methods instead of for loop weirdness
+
+def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7'], y_names=['Calculated SPM'], filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv'], Y_CODE='Calculated SPM'):
+    # TODO use pandas csv reader methods instead of for loop weirdness
     """
     Read in data from csv files.
 
@@ -182,7 +178,7 @@ def get_data(x_names,y_names,filenames,Y_CODE):
                             good = False
                             print 'bad data'
 
-                            #break out of for loop b/c don't care if there are other empties
+                            # break out of for loop b/c don't care if there are other empties
                             continue
 
                 # only add values to dicts if no missing data, again, assumes only one y
@@ -212,7 +208,8 @@ def get_data(x_names,y_names,filenames,Y_CODE):
 
     return X.transpose(), Y
 
-def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag,name_tag=''):
+
+def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag, name_tag=''):
     """
     Does a parameter sweep and uses kmeans cross validation to find the optimal ridge parameter. Currently only linear
 
@@ -225,9 +222,8 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag,name_tag
     # log_alphas = [range(-100, 60, step), range(40, 110, step), range(100, 150, step), range(210, 230, step)]
     log_alphas = [range(-10, 20, step), range(-1, 20, step)]
 
-
     # ridge regression only implemented for linear right now
-    #degrees = [1,2]
+    # degrees = [1,2]
     degrees = [1]
 
     for (degree, log_alpha) in zip(degrees, log_alphas):
@@ -264,13 +260,14 @@ def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag,name_tag
     plt.xlabel(r'$\beta$')
     plt.ylabel(r'K-Folds averaged Root Mean Square Error')
     plt.legend(degrees, loc='upper left')
-    #plt.show()
+    # plt.show()
     if save_flag:
         plt.savefig('/Users/Nathan/Desktop/Turbidity/SedimentLearning/figures/polynomial_ridge' + '_' + name_tag)
         plt.show()
         # plt.savefig('/Users/jadelson/Documents/phdResearch/SedimentLearning/figures/polynomial_ridge')
 
-def simple_linearSVR(X,y):
+
+def simple_linearSVR(X, y):
     '''
     Perform a simple svr on the data.
     RMSE for usgs/coastcolor is 70.6
@@ -280,18 +277,19 @@ def simple_linearSVR(X,y):
     :return:
     '''
     clf = svm.LinearSVR(epsilon=0.0)
-    clf.fit(X,y)
+    clf.fit(X, y)
 
     y_predict = clf.predict(X)
 
-    plt.plot(y_predict,y,'.k')
+    plt.plot(y_predict, y, '.k')
     plt.title('Actual SPM vs Predicted SPM (SVR)')
     plt.xlabel('Predicted SPM (mg/L)')
     plt.ylabel('Actual SPM (mg/L)')
     print 'SVR OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(y_predict.tolist(), y.tolist())))
     plt.show()
 
-def simple_ridgeCV(X,y):
+
+def simple_ridgeCV(X, y):
     '''
     Perform a ridge regression with cross validation.
     RMSE for usgs/coastcolor is 57.2
@@ -307,28 +305,44 @@ def simple_ridgeCV(X,y):
     :param y: output
     :return: nothing
     '''
-    log_alphas = np.array(np.arange(-15,15,0.25),dtype='float64')
-    alphas = 2**log_alphas
-    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
+    log_alphas = np.array(np.arange(-15, 15, 0.25), dtype='float64')
+    alphas = 2 ** log_alphas
+    clf = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
 
-    clf.fit(X,y)
+    clf.fit(X, y)
 
-    #print 'OUTPUT: ALPHA: ' + str(clf.alpha_)
+    print 'OUTPUT: ALPHA: ' + str(clf.alpha_)
 
     y_predict = clf.predict(X)
+    print 'Coefficients (index, coeff): ' + str(np.array(zip(np.arange(X.shape[0]), clf.coef_)))
 
-    graph_actual_SPM_vs_predicted_SPM(y,y_predict)
+    graph_actual_SPM_vs_predicted_SPM(y, y_predict)
+    return clf
+
 
 def division_feature_expansion(X):
-    xt =  X.T
+    '''
+    index = first index*(num indices) + second index - 1
+    :param X: input matrix with each datum as a row
+    :return: new matrix with each column as the ratio between two of the original feature arrays
+             the returned matrix does not contain the original columns
+    '''
+    xt = X.T
+
+    x_new = np.array([]).reshape(0, X.shape[0])
 
     indices = np.arange(X.shape[1])
-    for (a,b) in combinations(indices,2):
-        offset = 1 # avoid divide by zero errors???
-        xt = np.append(xt,[(xt[a] + offset)/(xt[b] + offset)],axis=0)
+    for (a, b) in permutations(indices, 2):
+        offset = .001  # avoid divide by zero errors??? totally arbitrary
 
-    return xt.T
-def EA_MB(lambda1, lambda2, lambda3, spm):
+        x_new = np.append(x_new, np.array([(xt[a] + offset) / (xt[b] + offset)]), axis=0)
+        # print x_new.shape[0] - 1, (a, b)
+
+    # print x_new.shape
+    return x_new.T
+
+
+def Han_EA_MB(Rrs_lambda1, Rrs_lambda2, Rrs_lambda3, spm):
     # log10(SPM) = c0 + c1*x1 + c2*x2
     # x1 = Rrs(lambda1) + Rrs(lambda2) sensitive to spm
     # x2 = Rrs(lambda3)/Rrs(lambda1) compensating term
@@ -337,61 +351,65 @@ def EA_MB(lambda1, lambda2, lambda3, spm):
 
     logy = np.log10(spm)
 
-    X1 = lambda1+lambda2
-    X2 = np.divide(lambda3,lambda1)
-    C0 = np.ones(lambda1.size)
+    X1 = Rrs_lambda1 + Rrs_lambda2
+    X2 = np.divide(Rrs_lambda3, Rrs_lambda1)
+    C0 = np.ones(Rrs_lambda1.size)
 
-    new_X = np.array([C0,X1,X2]).T
+    new_X = np.array([C0, X1, X2]).T
 
     # start ridge CV for log data
-    log_alphas = np.array(np.arange(-15,15,0.25),dtype='float64')
-    alphas = 2**log_alphas
-    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
-    clf.fit(new_X,logy)
-
+    log_alphas = np.array(np.arange(-15, 15, 0.25), dtype='float64')
+    alphas = 2 ** log_alphas
+    clf = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
+    clf.fit(new_X, logy)
 
     y_predict = clf.predict(new_X)
     print('EA-MB log regression')
-    graph_actual_SPM_vs_predicted_SPM(logy,y_predict)
+    graph_actual_SPM_vs_predicted_SPM(logy, y_predict)
 
-    y_predict_normal = np.power(10,y_predict)
+    y_predict_normal = np.power(10, y_predict)
 
     print('EA-MB regression')
-    graph_actual_SPM_vs_predicted_SPM(spm,y_predict_normal)
-def EA_MB_LANDSAT():
+    graph_actual_SPM_vs_predicted_SPM(spm, y_predict_normal)
+
+
+def Han_EA_MB_LANDSAT():
     # log10(SPM) = c0 + c1*x1 + c2*x2
     # x1 = Rrs(lambda1) + Rrs(lambda2) sensitive to spm
     # x2 = Rrs(lambda3)/Rrs(lambda1) compensating term
     # lambda 1 = green (555) = band2 for landsat 457, lambda 2 = red (670) = band3 for landsat 457,
     # lanbda3 = blue (490) = band1 for landsat 457
-    x_names = ['reflec_1','reflec_2','reflec_3']
+    x_names = ['reflec_1', 'reflec_2', 'reflec_3']
     y_names = ['Calculated SPM']
 
     filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+    X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
     # X col 0 is band1, col 1 is band2, col 2 is band3
     # so lambda1 is col 1, lambda2 is col 2, lambda3 is col 0
 
-    EA_MB(X[:,1],X[:,2],X[:,0],y)
-def EA_MB_MERIS():
+    Han_EA_MB(X[:, 1], X[:, 2], X[:, 0], y)
+
+
+def Han_EA_MB_MERIS():
     # log10(SPM) = c0 + c1*x1 + c2*x2
     # x1 = Rrs(lambda1) + Rrs(lambda2) sensitive to spm
     # x2 = Rrs(lambda3)/Rrs(lambda1) compensating term
     # lambda 1 = green (555) = band2 for landsat 457, lambda 2 = red (670) = band3 for landsat 457,
     # lanbda3 = blue (490) = band1 for landsat 457
-    x_names = ['reflec_3','reflec_5','reflec_7']
+    x_names = ['reflec_3', 'reflec_5', 'reflec_7']
     y_names = ['Calculated SPM']
 
     mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
     filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
-    #filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    # filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+    X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
 
-    EA_MB(lambda1=X[:,1],lambda2=X[:,2],lambda3=X[:,0],spm=y)
+    Han_EA_MB(Rrs_lambda1=X[:, 1], Rrs_lambda2=X[:, 2], Rrs_lambda3=X[:, 0], spm=y)
 
-def EA_BR():
+
+def Han_EA_BR():
     '''
     spm = a0 * exp(a1*X)
     X1 = Rrs(lambda1)/Rrs(lambda2)
@@ -401,46 +419,116 @@ def EA_BR():
     do log(spm) = log(a0) + a1*X?
     :return:
     '''
-    x_names = ['reflec_2','reflec_4']
+    x_names = ['reflec_2', 'reflec_4']
     # col 0 is lambda2, col 1 is lambda 1
     y_names = ['Calculated SPM']
 
     filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE=y_names[0])
+    X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE=y_names[0])
 
-    X1 = np.divide(X[:,1],X[:,0])
+    X1 = np.divide(X[:, 1], X[:, 0])
 
     logy = np.log10(y)
     A0 = np.ones(logy.shape)
 
-    new_X = np.array([A0,X1]).T
+    new_X = np.array([A0, X1]).T
     print new_X
     print logy
 
-    log_alphas = np.array(np.arange(-15,15,0.25),dtype='float64')
-    alphas = 2**log_alphas
-    clf = linear_model.RidgeCV(alphas = alphas,cv=None,store_cv_values=True)
-    clf.fit(new_X,logy)
+    log_alphas = np.array(np.arange(-15, 15, 0.25), dtype='float64')
+    alphas = 2 ** log_alphas
+    clf = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
+    clf.fit(new_X, logy)
 
     y_predict = clf.predict(new_X)
     print('EA-BR log regression')
-    graph_actual_SPM_vs_predicted_SPM(logy,y_predict)
+    graph_actual_SPM_vs_predicted_SPM(logy, y_predict)
 
-    y_predict_normal = np.power(10,y_predict)
+    y_predict_normal = np.power(10, y_predict)
 
     print('EA-BR regression')
-    graph_actual_SPM_vs_predicted_SPM(y,y_predict_normal)
-def graph_actual_SPM_vs_predicted_SPM(actual,predicted):
-    plt.plot(predicted,actual,'.k')
+    graph_actual_SPM_vs_predicted_SPM(y, y_predict_normal)
+
+
+def graph_actual_SPM_vs_predicted_SPM(actual, predicted):
+    plt.plot(predicted, actual, '.k')
     plt.title('Actual SPM vs Predicted SPM (Ridge)')
     plt.xlabel('Predicted SPM (mg/L)')
     plt.ylabel('Actual SPM (mg/L)')
-    print 'RIDGE OUTPUT: ROOT MEAN SQUARED ERROR: ' + str(np.sqrt(mean_squared_error(actual, predicted.tolist())))
-    print 'RIDGE OUTPUT: R2: ' + str(r2_score(actual.tolist(),predicted.tolist()))
-    x_line = np.linspace(0,np.amax(predicted),10)
+    print 'Ridge Output: RMSE: ' + str(np.sqrt(mean_squared_error(actual, predicted.tolist())))
+    print 'Ridge Output: R^2: ' + str(r2_score(actual.tolist(), predicted.tolist()))
+    x_line = np.linspace(0, np.amax(predicted), 10)
     y_line = x_line
-    plt.plot(x_line,y_line,'-r')
+    plt.plot(x_line, y_line, '-r')
     plt.show()
+
+
+def empirical_band_ratio():
+    '''
+
+    :return:
+    '''
+    ## DO LANDSAT REGRESSION
+    x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
+    y_names = ['Calculated SPM']
+
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
+
+    X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
+    y1 = np.log(y)
+
+    # make X only ratios between bands
+    # X = np.append(X,division_feature_expansion(X),axis=1)
+    X = division_feature_expansion(X)
+    '''
+    Ratios with highest correlation on 8 hour data
+    29: 1.91
+    9: -1.63
+    14: -1.57
+    28: 1.33
+    5: 1.15
+    '''
+
+    # reflec 5 vs 7 and 4 vs 1
+    # X = X[:,-1:]
+    # X[:,-1] = np.exp(X[:,-1])
+    # the last ratio varies more with log y than y
+
+    print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0], X.shape[1])
+
+    # start ridge CV for log data
+
+    # array of alphas to test
+    log_alphas = np.array(np.arange(-15, 15, 0.25), dtype='float64')
+    alphas = 2 ** log_alphas
+
+    # fit ridge with cv model
+    clf = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
+    clf.fit(X, y1)
+
+    indices_and_coefs = np.array(zip(np.arange(X.shape[1]),clf.coef_))
+    print 'Weights of band ratios sorted by correlation (index,weight)'
+    print indices_and_coefs[np.argsort(np.abs(clf.coef_))[::-1]]
+
+    y_predict = clf.predict(X)
+    print('\nLog(spm) regression on all band ratios')
+    graph_actual_SPM_vs_predicted_SPM(y1, y_predict)
+    print('exp(log(spm) prediction on all band ratios')
+    graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict))
+
+    # ONLY top 5 bands
+    X = X[:,[29,9,14,28,5]]
+    # ONLY top 3 bands
+    # X = X[:,[29,9,14]]
+
+    clf2 = linear_model.RidgeCV(alphas=alphas,cv=None,store_cv_values=True)
+    clf2.fit(X,y1)
+    y_predict2 = clf2.predict(X)
+    print('\nLog(spm) regression on top five band ratios')
+    graph_actual_SPM_vs_predicted_SPM(y1,y_predict2)
+    print('exp(log(spm) prediction on top five band ratios')
+    graph_actual_SPM_vs_predicted_SPM(y,np.exp(y_predict2))
+
 def main():
     '''
     Main function, must call get data then do some regression work
@@ -468,57 +556,33 @@ def main():
     '''
 
 
-    ## DO LANDSAT REGRESSION
-    x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
-    y_names = ['Calculated SPM']
-
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
-
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
-
-    # add features for ratios between bands
-    # X = division_feature_expansion(X)
-
-    # scale X and y
-    # X = robust_scale(X,axis=0)
-    # y = robust_scale(y.reshape(-1,1),axis=0)
-
-
-    # make it degree 2 polynomial
-    poly = preprocessing.PolynomialFeatures(1)
-    X = poly.fit_transform(X)
-
-
-    print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
-
-    simple_ridgeCV(X,y)
-    #simple_linearSVR(X,y)
-
 def test():
-    x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5','reflec_7']
+    x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
     y_names = ['Calculated SPM']
 
     filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames=filenames,Y_CODE='Calculated SPM')
+    X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
 
-    Xs = robust_scale(X,axis=0)
-    #print Xs
+    Xs = robust_scale(X, axis=0)
+    # print Xs
 
-    #print y
-    ys = robust_scale(y.reshape(-1,1),axis=0)
-    #print ys
+    # print y
+    ys = robust_scale(y.reshape(-1, 1), axis=0)
+    # print ys
 
-    simple_ridgeCV(Xs,ys)
+    simple_ridgeCV(Xs, ys)
+
 
 if __name__ == '__main__':
-    #test()
-    #main()
+    # test()
+    # main()
     ## DO LANDSAT REGRESSION
 
-    EA_MB_LANDSAT()
-    EA_MB_MERIS()
+    # EA_MB_LANDSAT()
+    # EA_MB_MERIS()
     # EA_BR()
+    empirical_band_ratio()
 
 ''' NOTES
 
