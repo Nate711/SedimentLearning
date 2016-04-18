@@ -333,7 +333,7 @@ def division_feature_expansion(X):
 
     indices = np.arange(X.shape[1])
     for (a, b) in permutations(indices, 2):
-        offset = .001  # avoid divide by zero errors??? totally arbitrary
+        offset = .1  # avoid divide by zero errors??? totally arbitrary
 
         x_new = np.append(x_new, np.array([(xt[a] + offset) / (xt[b] + offset)]), axis=0)
         # print x_new.shape[0] - 1, (a, b)
@@ -462,17 +462,92 @@ def graph_actual_SPM_vs_predicted_SPM(actual, predicted):
     plt.plot(x_line, y_line, '-r')
     plt.show()
 
+def empirical_band_ratio_with_k490():
+    '''
+    Empirical Top 5 Band Ratio with K490 Algorithm
+    (281, 1) (281, 5)
+    LANDSAT-POLARIS samples: 281   features: 6
+    Ridge regression coefs: [ 3.01425862 -3.16674065  0.84799895  1.30535828  1.73418323 -0.91364842]
+
+    Log(spm) regression on top 5 band ratios with k490
+    Ridge Output: RMSE: 0.686204506877
+    Ridge Output: R^2: 0.461545894437
+
+    exp(log(spm) prediction on top 5 band ratios with k490
+    Ridge Output: RMSE: 39.2627578113
+    Ridge Output: R^2: 0.130769876976
+    :return:
+    '''
+    print('\nEmpirical Top 5 Band Ratio with K490 Algorithm')
+
+    # get data
+    x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
+    y_names = ['Calculated SPM']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
+
+    # regression on log spm
+    logy = np.log(y)
+
+    # get top 5 correlated band ratios
+    X = division_feature_expansion(X)
+    # ONLY top 5 bands
+    X = X[:,[29,9,14,28,5]]
+
+    # k490 = 0.016 + 0.1565*  np.power(float(row['reflec_1'])/float(row['reflec_2']),  -1.540 )
+    k490 = 0.016 + 0.1565*np.power(np.divide(X[:,0],X[:,1]), -1.540 )
+    k490 = k490.reshape(k490.size,1)
+
+    print k490.shape,X.shape
+    X = np.append(X,k490,axis=1)
+
+    print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0], X.shape[1])
+
+    # start ridge CV for log data
+
+    # array of alphas to test
+    log_alphas = np.array(np.arange(-15, 15, 0.25), dtype='float64')
+    alphas = 2 ** log_alphas
+
+    # fit ridge with cv model
+    clf = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
+    clf.fit(X, logy)
+    print('Ridge regression coefs: {}'.format(clf.coef_))
+
+    y_predict = clf.predict(X)
+    print('\nLog(spm) regression on top 5 band ratios with k490')
+    graph_actual_SPM_vs_predicted_SPM(logy, y_predict)
+    print('exp(log(spm) prediction on top 5 band ratios with k490')
+    graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict))
+
 
 def empirical_band_ratio():
     '''
+    8hr data:
+
+    Log(spm) regression on all band ratios
+    Ridge Output: RMSE: 0.642772488652
+    Ridge Output: R^2: 0.527549708894
+    exp(log(spm) prediction on all band ratios
+    Ridge Output: RMSE: 38.1185444285
+    Ridge Output: R^2: 0.180694664267
+
+    Log(spm) regression on top five band ratios
+    Ridge Output: RMSE: 0.685807620503
+    Ridge Output: R^2: 0.462168575561
+    exp(log(spm) prediction on top five band ratios
+    Ridge Output: RMSE: 39.2703225557
+    Ridge Output: R^2: 0.13043489607
 
     :return:
     '''
+    print('\nEmpirical Band Ratio Algorithm')
+
     ## DO LANDSAT REGRESSION
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
 
     X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
     y1 = np.log(y)
@@ -583,7 +658,7 @@ if __name__ == '__main__':
     # EA_MB_MERIS()
     # EA_BR()
     empirical_band_ratio()
-
+    empirical_band_ratio_with_k490()
 ''' NOTES
 
 landsat 8 band | wavelength | landsat 4,5,7 band
