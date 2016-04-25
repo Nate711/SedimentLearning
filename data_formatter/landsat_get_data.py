@@ -150,6 +150,18 @@ def get_landsat_spacecraft_ID(scene_folder):
     number = scene_name[2]
     return 'LANDSAT_{}'.format(number)
 
+def remove_data_where_cloud_cover_df(df):
+    return df[df.cloud==0]
+
+def remove_data_where_cloud_cover_csv(filtered_csv_path = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_*'):
+    paths = glob.glob(filtered_csv_path)
+
+    for path in paths:
+        df = pd.read_csv(path)
+
+        df = remove_data_where_cloud_cover_df(df)
+        df.to_csv(path,index=False)
+
 def convert_landsat8_band_to_landsat457_band(band):
     '''
     landsat 8 band | wavelength | landsat 4,5,7 band
@@ -167,6 +179,9 @@ def convert_landsat8_band_to_landsat457_band(band):
     '''
     mapping = {1:None,2:1,3:2,4:3,5:4,6:5,7:7}
     return mapping[band]
+
+def get_scene_name(img_path):
+    return img_path[img_path.rfind('/') + 1:img_path.rfind('/') + 22]
 
 def get_landsat_data((station_locs_dict, station_image_coors_dict)):
     # TODO fix description
@@ -204,7 +219,7 @@ def get_landsat_data((station_locs_dict, station_image_coors_dict)):
         spacecraft_ID = get_landsat_spacecraft_ID(scene_folder)
 
         # get the name of the scene extracted from cf path
-        scene_name = cf_path[cf_path.rfind('/') + 1:cf_path.rfind('_')]
+        scene_name = get_scene_name(cf_path)
 
         data['landsat_scene'] = np.append(data['landsat_scene'], [scene_name] * len(station_image_coors_dict.keys()))
         data['station_ID'] = np.append(data['station_ID'], station_image_coors_dict.keys())
@@ -671,18 +686,6 @@ def create_varied_cutoff_csvs(
     for cutoff in cutoffs:
         filtered_df = df[df.time_diff < timedelta(hours=cutoff)]
         filtered_df.to_csv(save_path_base + '_' + str(cutoff) + 'hr.csv', index=False)
-def remove_data_where_cloud_cover_df(df):
-    return df[df.cloud==0]
-
-def remove_data_where_cloud_cover_csv(filtered_csv_path = '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_*'):
-    paths = glob.glob(filtered_csv_path)
-
-    for path in paths:
-        df = pd.read_csv(path)
-
-        df = remove_data_where_cloud_cover_df(df)
-        df.to_csv(path,index=False)
-
 
 if __name__ == '__main__':
     data_columns = ['date_time', 'cf_mask_quality', 'cloud', 'station_ID', 'lat', 'long', 'landsat_scene', 'reflec_1',

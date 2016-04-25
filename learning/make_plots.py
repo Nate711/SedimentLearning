@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.metrics import r2_score
 seed = 4
 
-def r2_vs_time_cutoff(times):
+def r2_vs_time_cutoff(times,spm_cutoff=-1):
     # times = np.array([1,2,4])
 
     r2s = np.zeros_like(times,dtype='float64')
@@ -13,8 +13,9 @@ def r2_vs_time_cutoff(times):
 
     for index,time in enumerate(times):
         # print index,time
-        x,y=regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time)])
+        x,y=regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time)],spm_cutoff=spm_cutoff)
         x = regression.division_feature_expansion(x)
+
         # ONLY top 5 bands
         x = x[:,[29,9,14,28,5]]
         logy = np.log(y)
@@ -29,8 +30,13 @@ def r2_vs_time_cutoff(times):
 
         r2_test = np.round(r2_score(y_test, y_pred), 3)
         r2_train = np.round(r2_score(y_train, y_train_pred), 3)
+
+        r2_test_unlog = np.round(r2_score(np.exp(y_test),np.exp(y_pred)),3)
+        r2_train_unlog = np.round(r2_score(np.exp(y_train),np.exp(y_train_pred)),3)
+
         # print r2_train,r2_test
-        r2s[index] = r2_train
+        # r2s[index] = r2_train
+        r2s[index] = r2_train_unlog
         num_data[index] = x.shape[0]
 
         print r2s,num_data
@@ -38,8 +44,11 @@ def r2_vs_time_cutoff(times):
 
 def plot_r2_over_time_diff():
     times = np.array([1,2,4,8,12,16,20,24])
-    # r2s,num_data = r2_vs_time_cutoff(times)
-    r2s,num_data = [ 0.508,  0.54,   0.516,  0.415,  0.415,  0.415,  0.433,  0.417], [ 61, 126, 234, 281, 281, 281, 298, 480]
+    r2s,num_data = r2_vs_time_cutoff(times)
+    # log r2 below
+    # r2s,num_data = [ 0.508,  0.54,   0.516,  0.415,  0.415,  0.415,  0.433,  0.417], [ 61, 126, 234, 281, 281, 281, 298, 480]
+    # unlogged r2 below
+    # r2s,num_data = [ 0.638,  0.503,  0.348,  0.485,  0.485,  0.485,  0.197,  0.297], [ 61, 126, 234, 281, 281, 281, 298, 480]
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -48,7 +57,7 @@ def plot_r2_over_time_diff():
     ax2 = ax.twinx()
     ax2plot = ax2.plot(times,num_data,'or')
 
-    ax.set_xticks([1,2,4,6,8,12,16,20,24])
+    ax.set_xticks(times)
 
     ax.legend(ax1plot+ax2plot,['R^2','Number of Samples'],loc=2)
     # ax2.legend('Num Samples')
@@ -68,23 +77,40 @@ def plot_r2_over_time_diff():
     plt.savefig('../figures/huber_training_r2_vs_time')
     # plt.show()
 
-
-def make_huber_train_band_ratios():
+def make_huber_train_band_ratios(time_cutoff,spm_cutoff=-1):
     '''
-    on 8hr data, the r2 for the log regression is .555 and .21 when unlogged
+    on 8hr data, the r2 for the log regression is .415 and .094 when unlogged
+    on 4hr data, r2 is .313 on unlogged top 5 band ratios
+    on 4hr data, r2 is .364 on unlogged when also using normal bands and top 3 ratios
+    on 4hr data, r2 is .432 on unlogged when also using normal bands and top 5 ratios
+
+    on 2hr data, r2 is .436 on unlogged top 5 band ratios
+    on 2hr data, r2 is .621 on unlogged when also using normal bands and top 3 ratios
+    on 2hr data, r2 is .655 on unlogged when also using normal bands and top 5 ratios
+
     :return:
     '''
 
-    x,y=regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']) # 8hr data
-    x = regression.division_feature_expansion(x)
+    x,y=regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time_cutoff)],spm_cutoff=spm_cutoff) # 8hr data
 
-    # ONLY top 5 bands
-    x = x[:,[29,9,14,28,5]]
+    # Get top 5 correlated band ratios
+    # top_5_bands = regression.division_feature_expansion(x)[:,[29,9,14,28,5]]
+    top_5_bands = regression.top_5_band_ratios(x)
+    # Add to feature array
+    x = np.append(x,top_5_bands,axis=1)
+
+    '''
+    # Get top 3 correlated band ratios
+    top_3_bands = regression.division_feature_expansion(x)[:,[29,9,14,28,5]]
+    # Add to feature array
+    x = np.append(x,top_3_bands,axis=1)
+    '''
 
     # log spm regression
     logy = np.log(y)
 
     alpha = 8
+
     model = mycvx.kfolds_convex(x, logy, alpha, random_seed=seed)
     y_test = model['data']['y_test']
     y_pred = model['data']['y_pred']
@@ -92,23 +118,29 @@ def make_huber_train_band_ratios():
     y_train_pred = model['data']['y_train_pred']
 
 
-    r2 = np.round(r2_score(y_test, y_pred), 3)
-    r2train = np.round(r2_score(y_train, y_train_pred), 3)
+    r2_test = np.round(r2_score(y_test, y_pred), 3)
+    r2_train = np.round(r2_score(y_train, y_train_pred), 3)
+
     plt.clf()
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(y_train_pred, y_train, '.b')
-    ax.plot(y_pred, y_test, '.r')
-    ax.plot(np.arange(0, 1.2*np.max(y_test), .1), np.arange(0, 1.2*np.max(y_test), .1), '-k')
-    fig.suptitle('Reconstruction Ability of Robust Regression Model on 5 Most Correlated Band Ratios')
-    ax.set_xlabel('Log Remotely Sensed SPM (g/ml)')
-    ax.set_ylabel('Log In situ measure SPM (g/ml)')
 
-    # print (max(np.max(y_pred), np.max(y_test))- np.min(np.min(y_pred), 0))*5./6. - np.min(np.min(y_pred), 0)
-    ax.text((max(np.max(y_pred), np.max(y_test))- min(np.min(y_pred), 0))*5./6. - min(np.min(y_pred), 0), np.max(y_test)/7.,  r'$R^2=%s$' % (r2train), fontsize=15)
-    plt.savefig('../figures/huber_training_band_ratio_log')
+    ax.plot(y_train_pred, y_train, '.b',label='Training Data')
+    ax.plot(y_pred, y_test, '.r',label='Test Data')
+    ax.plot(np.arange(0, 1.2*np.max(y_test), .1), np.arange(0, 1.2*np.max(y_test), .1), '-k')
+
+    ax.legend()
+
+    fig.suptitle('Reconstruction Ability of Robust Regression Model on\n 5 Most Correlated Band Ratios and 6 Surface Reflectances using {}hr Data'.format(time_cutoff))
+    ax.set_xlabel('Log Remotely Sensed SPM (mg/L)')
+    ax.set_ylabel('Log In situ measure SPM (mg/L)')
+
+    ax.annotate(xy=(0,0),xytext=(5./6.,1./7.),s='Training Set R^2={}'.format(r2_train),textcoords="figure fraction",family='serif',horizontalalignment='right')
+    ax.annotate(xy=(0,0),xytext=(5./6.,1.5/7.),s='Testing Set R^2={}'.format(r2_test),textcoords="figure fraction",family='serif',horizontalalignment='right')
+
+    plt.savefig('../figures/huber_training_band_ratio_log_{}hr'.format(time_cutoff))
     # plt.show()
-    print 'r2: ', r2train
+    print 'r2 train log: ', r2_train
 
     # unlog y_train and pred etc
     y_test = np.exp(y_test)
@@ -116,24 +148,27 @@ def make_huber_train_band_ratios():
     y_train = np.exp(y_train)
     y_train_pred = np.exp(y_train_pred)
 
-    r2 = np.round(r2_score(y_test, y_pred), 3)
-    r2train = np.round(r2_score(y_train, y_train_pred), 3)
+    r2_test = np.round(r2_score(y_test, y_pred), 3)
+    r2_train = np.round(r2_score(y_train, y_train_pred), 3)
+
     plt.clf()
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(y_train_pred, y_train, '.b')
-    ax.plot(y_pred, y_test, '.r')
+    ax.plot(y_train_pred, y_train, '.b',label='Training Data')
+    ax.plot(y_pred, y_test, '.r',label='Test Data')
+    ax.legend()
+
     ax.plot(np.arange(0, 1.2*np.max(y_test), .1), np.arange(0, 1.2*np.max(y_test), .1), '-k')
-    fig.suptitle('Reconstruction Ability of Robust Regression Model on 5 Most Correlated Band Ratios')
-    ax.set_xlabel('Remotely Sensed SPM (g/ml)')
-    ax.set_ylabel('In situ measure SPM (g/ml)')
+    fig.suptitle('Reconstruction Ability of Robust Regression Model on \n5 Most Correlated Band Ratios and 6 Surface Reflectances using {}hr Data'.format(time_cutoff))
+    ax.set_xlabel('Remotely Sensed SPM (mg/L)')
+    ax.set_ylabel('In situ measure SPM (mg/L)')
 
-    # print (max(np.max(y_pred), np.max(y_test))- np.min(np.min(y_pred), 0))*5./6. - np.min(np.min(y_pred), 0)
-    ax.text((max(np.max(y_pred), np.max(y_test))- min(np.min(y_pred), 0))*5./6. - min(np.min(y_pred), 0), np.max(y_test)/7.,  r'$R^2=%s$' % (r2train), fontsize=15)
-    plt.savefig('../figures/huber_training_band_ratio')
+    ax.annotate(xy=(0,0),xytext=(5./6.,1./7.),s='Training Set R^2={}'.format(r2_train),textcoords="figure fraction",family='serif',horizontalalignment='right')
+    ax.annotate(xy=(0,0),xytext=(5./6.,1.5/7.),s='Testing Set R^2={}'.format(r2_test),textcoords="figure fraction",family='serif',horizontalalignment='right')
+
+    plt.savefig('../figures/huber_training_band_ratio_{}hr'.format(time_cutoff))
     # plt.show()
-    print 'r2: ', r2train
-
+    print 'r2 train not log: ', r2_train
 
 def make_huber_test():
     x, y = regression.get_data()
@@ -149,8 +184,8 @@ def make_huber_test():
     ax.plot(y_pred, y_test, 'or')
     ax.plot(np.arange(0, 1.05*np.max(y_test), .1), np.arange(0, 1.05*np.max(y_test), .1), '-k')
     fig.suptitle('Predictive Ability of Robust Regression Model')
-    ax.set_xlabel('Remotely Sensed SPM (g/ml)')
-    ax.set_ylabel('In situ measure SPM (g/ml)')
+    ax.set_xlabel('Remotely Sensed SPM (mg/L)')
+    ax.set_ylabel('In situ measure SPM (mg/L)')
 
     # print (max(np.max(y_pred), np.max(y_test))- np.min(np.min(y_pred), 0))*5./6. - np.min(np.min(y_pred), 0)
     ax.text((max(np.max(y_pred), np.max(y_test))- min(np.min(y_pred), 0))*5./6. - min(np.min(y_pred), 0), np.max(y_test)/7.,  r'$R^2=%s$' % (r2), fontsize=15)
@@ -165,7 +200,7 @@ def make_huber_test():
     # print 'inf r2: ', r2inf
 
 def make_huber_train():
-    x, y = regression.get_data()
+    x, y = regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_4hr.csv'])
     alpha = 8
     model = mycvx.kfolds_convex(x, y, alpha, random_seed=seed)
     y_test = model['data']['y_test']
@@ -178,12 +213,12 @@ def make_huber_train():
     plt.clf()
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(y_train_pred, y_train, 'ob')
-    ax.plot(y_pred, y_test, 'or')
+    ax.plot(y_train_pred, y_train, '.b')
+    ax.plot(y_pred, y_test, '.r')
     ax.plot(np.arange(0, 1.2*np.max(y_test), .1), np.arange(0, 1.2*np.max(y_test), .1), '-k')
     fig.suptitle('Reconstruction Ability of Robust Regression Model')
-    ax.set_xlabel('Remotely Sensed SPM (g/ml)')
-    ax.set_ylabel('In situ measure SPM (g/ml)')
+    ax.set_xlabel('Remotely Sensed SPM (mg/L)')
+    ax.set_ylabel('In situ measure SPM (mg/L)')
 
     # print (max(np.max(y_pred), np.max(y_test))- np.min(np.min(y_pred), 0))*5./6. - np.min(np.min(y_pred), 0)
     ax.text((max(np.max(y_pred), np.max(y_test))- min(np.min(y_pred), 0))*5./6. - min(np.min(y_pred), 0), np.max(y_test)/7.,  r'$R^2=%s$' % (r2train), fontsize=15)
@@ -194,5 +229,7 @@ def make_huber_train():
 if __name__ == '__main__':
     # make_huber_train()
     # make_huber_test()
-    # make_huber_train_band_ratios()
-    plot_r2_over_time_diff()
+    # [make_huber_train_band_ratios(i) for i in [2,4,8]]
+    make_huber_train_band_ratios(2)
+    # plot_r2_over_time_diff()
+    # r2_vs_time_cutoff([8])

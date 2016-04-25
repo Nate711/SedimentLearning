@@ -35,6 +35,17 @@ Meris band  |  wavelength
          12 |  778
          13 |  865
 
+**SPM sources**
+*USGS*
+Source: http://waterdata.usgs.gov/ca/nwis/dv?format=rdb&site_no=11525535&referred_module=sw&begin_date=1900-1-1&end_date=2008-12-31
+DD: 05 Statistic: 80154  Parameter:00003 is the: Suspended sediment concentration, milligrams per liter (Mean)
+
+*Polaris*
+Source: http://sfbay.wr.usgs.gov/access/wqdata/query/qhelp.html
+CALCULATED SPM: estimated concentration of suspended sediments, calculated from the OBS voltage output and
+linear regression (calibration) between the discrete measures of suspended solids and the OBS voltage.
+The standard error of the calculated value for each cruise is listed at the top of the data table.
+Units of measurement are milligrams per liter.
 
 **Data directory:**
 *landsat_data_UTC.csv*

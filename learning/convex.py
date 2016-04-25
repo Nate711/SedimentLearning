@@ -34,7 +34,7 @@ def kfolds_convex(x_data1, y_data1, param, random_seed=None, savename='all_remot
     for train_index, test_index in kf:
         x_train, x_test = x_data[train_index, :], x_data[test_index, :]
         y_train, y_test = y_data[train_index], y_data[test_index]
-        test_error, train_error, y_pred, y_train_pred = robust_test(x_train, y_train, x_test, y_test, param,
+        test_error, train_error, y_pred, y_train_pred,theta = robust_test(x_train, y_train, x_test, y_test, param,
                                                              savename, title, choice)
 
         errors[i] = test_error
@@ -42,6 +42,7 @@ def kfolds_convex(x_data1, y_data1, param, random_seed=None, savename='all_remot
 
     # only returns training,test,pred,etc data on last fold
     return {'testmse': np.mean(errors), 'testr2': r2_score(y_test, y_pred), 'trainr2': r2_score(y_train, y_train_pred),
+            'theta':theta,
             'data': {'x_train': x_train, 'y_train': y_train, 'y_train_pred': y_train_pred, 'x_test': x_test,
                      'y_test': y_test, 'y_pred': y_pred}}
 
@@ -79,7 +80,8 @@ def robust_test(x_train, y_train, x_test, y_test, param, save_name, title='', ch
     plt.savefig(save_name)
 
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
-           mean_squared_error(y_train.tolist(), y_train_pred.tolist()), y_pred, y_train_pred
+           mean_squared_error(y_train.tolist(), y_train_pred.tolist()), y_pred, y_train_pred,\
+           theta
 
 
 def optimal_parameters(x, y):

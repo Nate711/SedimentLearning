@@ -42,19 +42,6 @@ Y_CODE = 'Calculated SPM'
 
 '''
 
-'''
-Notes:
-Source: http://waterdata.usgs.gov/ca/nwis/dv?format=rdb&site_no=11525535&referred_module=sw&begin_date=1900-1-1&end_date=2008-12-31
-DD: 05 Statistic: 80154  Parameter:00003 is the: Suspended sediment concentration, milligrams per liter (Mean)
-Source: http://sfbay.wr.usgs.gov/access/wqdata/query/qhelp.html
-CALCULATED SPM: estimated concentration of suspended sediments, calculated from the OBS voltage output and
-linear regression (calibration) between the discrete measures of suspended solids and the OBS voltage.
-The standard error of the calculated value for each cruise is listed at the top of the data table.
-Units of measurement are milligrams per liter.
-
-'''
-
-
 def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_alpha=0, title=''):
     # print 'Ridge regression alpha =', this_alpha
     """
@@ -130,7 +117,10 @@ def kfolds_ridge(x_data1, y_data1, param):
     return np.mean(errors)
 
 
-def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7'], y_names=['Calculated SPM'], filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv'], Y_CODE='Calculated SPM'):
+def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7'],
+             y_names=['Calculated SPM'],
+             filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv'],
+             Y_CODE='Calculated SPM',spm_cutoff = -1):
     # TODO use pandas csv reader methods instead of for loop weirdness
     """
     Read in data from csv files.
@@ -205,8 +195,16 @@ def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5'
 
     # print X.shape,Y.shape
     # print Y
+    X = X.T
+    if(spm_cutoff != -1):
+        indices = [Y<spm_cutoff]
+        # print indices
+        # print X.shape,Y.shape
+        Y = Y[indices]
+        X = X[indices]
+        # print X.shape,Y.shape
 
-    return X.transpose(), Y
+    return X, Y
 
 
 def find_best_shrink_polynomial_degree_ridgee(x_data, y_data, save_flag, name_tag=''):
@@ -319,10 +317,14 @@ def simple_ridgeCV(X, y):
     graph_actual_SPM_vs_predicted_SPM(y, y_predict)
     return clf
 
-
-def division_feature_expansion(X):
+def top_5_band_ratios(X):
     '''
-    index = first index*(num indices) + second index - 1
+    index = first index*(num ratios-1) + second index - 1
+    num ratios = 6
+
+    top 5 indices correlated to log(spm): 29,9,14,28,5
+    these are associated with (5,4),(1,5),(2,5),(5,3),(1,0)
+
     :param X: input matrix with each datum as a row
     :return: new matrix with each column as the ratio between two of the original feature arrays
              the returned matrix does not contain the original columns
@@ -332,10 +334,39 @@ def division_feature_expansion(X):
     x_new = np.array([]).reshape(0, X.shape[0])
 
     indices = np.arange(X.shape[1])
+    for (a,b) in [(5,4),(1,5),(2,5),(5,3),(1,0)]:
+        offset = .1  # avoid divide by zero errors??? totally arbitrary
+
+        x_new = np.append(x_new, np.array([(xt[a] + offset) / (xt[b] + offset)]), axis=0)
+        # print x_new.shape[0] - 1, (a, b)
+
+    # print x_new.shape
+    return x_new.T
+
+def division_feature_expansion(X):
+    '''
+    index = first index*(num indices) + second index - 1
+    num indices = 6
+
+    top 5 indices correlated to log(spm): 29,9,14,28,5
+    these are associated with (5,4),(1,5),(2,5),(5,3),(1,0)
+
+    :param X: input matrix with each datum as a row
+    :return: new matrix with each column as the ratio between two of the original feature arrays
+             the returned matrix does not contain the original columns
+    '''
+    xt = X.T
+
+    x_new = np.array([]).reshape(0, X.shape[0])
+
+    indices = np.arange(X.shape[1])
+    count=0
     for (a, b) in permutations(indices, 2):
         offset = .1  # avoid divide by zero errors??? totally arbitrary
 
         x_new = np.append(x_new, np.array([(xt[a] + offset) / (xt[b] + offset)]), axis=0)
+        print (count,a,b)
+        count+=1
         # print x_new.shape[0] - 1, (a, b)
 
     # print x_new.shape
@@ -462,6 +493,7 @@ def graph_actual_SPM_vs_predicted_SPM(actual, predicted):
     plt.plot(x_line, y_line, '-r')
     plt.show()
 
+
 def empirical_band_ratio_with_k490():
     '''
     Empirical Top 5 Band Ratio with K490 Algorithm
@@ -492,14 +524,14 @@ def empirical_band_ratio_with_k490():
     # get top 5 correlated band ratios
     X = division_feature_expansion(X)
     # ONLY top 5 bands
-    X = X[:,[29,9,14,28,5]]
+    X = X[:, [29, 9, 14, 28, 5]]
 
     # k490 = 0.016 + 0.1565*  np.power(float(row['reflec_1'])/float(row['reflec_2']),  -1.540 )
-    k490 = 0.016 + 0.1565*np.power(np.divide(X[:,0],X[:,1]), -1.540 )
-    k490 = k490.reshape(k490.size,1)
+    k490 = 0.016 + 0.1565 * np.power(np.divide(X[:, 0], X[:, 1]), -1.540)
+    k490 = k490.reshape(k490.size, 1)
 
-    print k490.shape,X.shape
-    X = np.append(X,k490,axis=1)
+    print k490.shape, X.shape
+    X = np.append(X, k490, axis=1)
 
     print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0], X.shape[1])
 
@@ -581,7 +613,7 @@ def empirical_band_ratio():
     clf = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
     clf.fit(X, y1)
 
-    indices_and_coefs = np.array(zip(np.arange(X.shape[1]),clf.coef_))
+    indices_and_coefs = np.array(zip(np.arange(X.shape[1]), clf.coef_))
     print 'Weights of band ratios sorted by correlation (index,weight)'
     print indices_and_coefs[np.argsort(np.abs(clf.coef_))[::-1]]
 
@@ -592,28 +624,29 @@ def empirical_band_ratio():
     graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict))
 
     # ONLY top 5 bands
-    X = X[:,[29,9,14,28,5]]
+    X = X[:, [29, 9, 14, 28, 5]]
     # ONLY top 3 bands
     # X = X[:,[29,9,14]]
 
-    clf2 = linear_model.RidgeCV(alphas=alphas,cv=None,store_cv_values=True)
-    clf2.fit(X,y1)
+    clf2 = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
+    clf2.fit(X, y1)
     y_predict2 = clf2.predict(X)
     print('\nLog(spm) regression on top five band ratios')
-    graph_actual_SPM_vs_predicted_SPM(y1,y_predict2)
+    graph_actual_SPM_vs_predicted_SPM(y1, y_predict2)
     print('exp(log(spm) prediction on top five band ratios')
-    graph_actual_SPM_vs_predicted_SPM(y,np.exp(y_predict2))
+    graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict2))
+
 
 def main():
     '''
     Main function, must call get data then do some regression work
     '''
 
-    '''
     ##### do regression with coastcolor and polaris data
     x_names = ['reflec_1', 'reflec_10',
-           'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7', 'reflec_8',
-           'reflec_9']
+               'reflec_12', 'reflec_13', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7',
+               'reflec_8',
+               'reflec_9']
     y_names = ['Calculated SPM']
 
     # grabs all the filenames of csvs inside data/full/
@@ -622,34 +655,34 @@ def main():
     mypath = '/Users/Nathan/Dropbox/SedimentLearning/data/full/'
     filenames = [mypath + f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.csv')]
 
-    X, y = get_data(x_names = x_names,y_names=y_names,filenames = filenames,Y_CODE = 'Calculated SPM')
+    X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
 
-    print 'CC-USGS samples: {}   features: {}'.format(X.shape[0],X.shape[1])
+    print 'CC-USGS samples: {}   features: {}'.format(X.shape[0], X.shape[1])
 
-    simple_ridgeCV(X,y)
-    #simple_linearSVR(X,y)
-    '''
+    simple_ridgeCV(X, y)
+    # simple_linearSVR(X,y)
 
 
 def test():
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
 
     X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
 
-    Xs = robust_scale(X, axis=0)
+    # Xs = robust_scale(X, axis=0)
     # print Xs
 
     # print y
-    ys = robust_scale(y.reshape(-1, 1), axis=0)
+    # ys = robust_scale(y.reshape(-1, 1), axis=0)
     # print ys
 
-    simple_ridgeCV(Xs, ys)
+    simple_ridgeCV(X, y)
 
 
 if __name__ == '__main__':
+    print 'hi'
     # test()
     # main()
     ## DO LANDSAT REGRESSION
@@ -658,7 +691,7 @@ if __name__ == '__main__':
     # EA_MB_MERIS()
     # EA_BR()
     empirical_band_ratio()
-    empirical_band_ratio_with_k490()
+    # empirical_band_ratio_with_k490()
 ''' NOTES
 
 landsat 8 band | wavelength | landsat 4,5,7 band
@@ -675,21 +708,8 @@ landsat 8 band | wavelength | landsat 4,5,7 band
 Ridge with 8hr landsat polaris data without division features:
 R2 = .293
 
-coeffs
-[-0.0911004   0.02210368 -0.02898023 -0.03669951 -0.08078736  0.21832104]
-
-
 Ridge with 8hr landsat polaris data with division features:
 R2 = .298
-
-coeffs, divisions feature weights are quite small
-[ -9.15334879e-02   2.35789838e-02  -3.01392975e-02  -3.69621953e-02 -8.06454136e-02   2.18712566e-01
- 1.84183934e-01   1.06010624e-02
-  -3.39367896e-03  -2.31273956e-03  -2.97999485e-03  -2.25243609e-02
-  -3.00992840e-03  -2.20057625e-03  -2.43230700e-03  -8.18643396e-04
-  -5.68472257e-04  -1.18759833e-04   6.50953814e-04   6.07126177e-04
-  -6.31267163e-04]
-
 
 EA-MB regression
 R2 for 8hr data: .196 on log regression, .00489 on actual regrssion
