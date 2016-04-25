@@ -3,8 +3,11 @@ import convex as mycvx
 import numpy as np
 from data_formatter.landsat_get_data import get_scene_imgs,get_sr_band_imgs,get_scene_name
 import cv2
+import glob
 
-
+def print_theta():
+    #TODO write this
+    return 0
 def get_feature_array(scene_folder_path):
     data_columns = [ 'reflec_1','reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
     data = {}
@@ -69,7 +72,14 @@ def create_model():
     print('Done training robust regression. Starting SPM prediction calculation...')
 
     return theta
-def create_spm_map(theta = None,scene_path = ''):
+def create_spm_map(theta = None,scene_path = '',log_spm_flag=True):
+    '''
+
+    :param theta: theta for the linear model
+    :param scene_path: full path to the scene folder
+    :param log_spm_flag: flag for whether to map spm or log(spm), true means log(spm)
+    :return:
+    '''
     if(theta is None):
         theta = create_model()
     else:
@@ -78,32 +88,57 @@ def create_spm_map(theta = None,scene_path = ''):
     scene_data, image_shape = get_feature_array(scene_path)
     # print scene_data
 
-    predicted_spm = np.exp(np.dot(scene_data,theta))
+    predicted_spm_log = np.dot(scene_data,theta)
+    predicted_spm = np.exp(predicted_spm_log)
+
     print('Done creating predicted SPM map')
 
     # print predicted_spm,predicted_spm.shape
     # print image_shape
 
-    spm_map = predicted_spm.reshape(image_shape)
-    spm_map[spm_map>500] = 500
-    spm_map[spm_map<0] = 0
+    if(log_spm_flag):
+        spm_map = predicted_spm_log.reshape(image_shape)
+        spm_map[spm_map>5] = 5
+        spm_map[spm_map<0] = 0
 
-    # spm_map = spm_map * 256./200.
+        # high log(spm) values are around 5
+        spm_map = spm_map * 256./5.
+    else:
+        spm_map = predicted_spm_log.reshape(image_shape)
+        spm_map[spm_map>500] = 500
+        spm_map[spm_map<0] = 0
+
+        # high spm values are around 150
+        spm_map = spm_map * 256./140.
 
     # print spm_map
     spm_map = np.array(spm_map,dtype='uint8')
 
-    # spm_map_color = np.zeros()
+    # spm_map_color = np.zeros((image_shape[0],image_shape[1],3))
+    # spm_map_color[:,:,0] = spm_map
+    # spm_map_color[:,:,1] = spm_map
+    # spm_map_color[:,:,2] = spm_mapd
+
+    # print spm_map_color
 
     scene_name = get_scene_name(get_scene_imgs(scene_path)[0])
-    cv2.imwrite('../figures/spm_map_{}.png'.format(scene_name),spm_map)
+    cv2.imwrite('../figures/{}spm_map_{}.jpg'.format(('log_' if log_spm_flag else ''),scene_name),spm_map)
 
 if __name__ == '__main__':
     # get_image_matrix(scene_folder_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
     theta = create_model()
-    create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
-    create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT50440342009271-SC20160218112659/')
-    create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT50440342010194-SC20160218111641/')
-    create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003071-SC20160218112128/')
-    create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
+    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
+    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT50440342009271-SC20160218112659/')
+    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT50440342010194-SC20160218111641/')
+    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003071-SC20160218112128/')
+    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
 
+    two_hr_scenes = ['LE70440342003007EDC00', 'LE70440342003055EDC00', 'LE70440342003071EDC00', 'LE70440342012080EDC00',
+                     'LE70440342012144EDC00', 'LE70440342012240EDC00', 'LE70440342014133EDC00', 'LE70440342015072EDC00',
+                     'LT50440342007234PAC01', 'LT50440342008253PAC01', 'LT50440342009079PAC01', 'LT50440342009239PAC01',
+                     'LT50440342009271PAC01','LT50440342010194PAC01', 'LT50440342010274PAC01', 'LT50440342011165PAC02']
+
+    for scene in two_hr_scenes:
+        path = glob.glob('/Users/Nathan/Dropbox/SedimentLearning/data/landsat/' + scene[:-5]+'*')[0] + '/'
+        print path
+        create_spm_map(theta,scene_path=path)

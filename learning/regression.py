@@ -322,6 +322,7 @@ def top_5_band_ratios(X):
     index = first index*(num ratios-1) + second index - 1
     num ratios = 6
 
+    IMPORTANT: BANDS MUST BE IN ORDER: 1,2,3,4,5,7
     top 5 indices correlated to log(spm): 29,9,14,28,5
     these are associated with (5,4),(1,5),(2,5),(5,3),(1,0)
 
@@ -335,9 +336,19 @@ def top_5_band_ratios(X):
 
     indices = np.arange(X.shape[1])
     for (a,b) in [(5,4),(1,5),(2,5),(5,3),(1,0)]:
-        offset = .1  # avoid divide by zero errors??? totally arbitrary
+        # offset = .1 # avoid divide by zero errors??? totally arbitrary
+        # ratio = np.array([(xt[a] + offset) / (xt[b] + offset)])
 
-        x_new = np.append(x_new, np.array([(xt[a] + offset) / (xt[b] + offset)]), axis=0)
+        band_b = xt[b]
+        # work around divide by zero. if reflectance, is zero, make it one
+        band_b[band_b == 0] = 1
+        band_a = xt[a]
+
+        ratio = np.array([band_a / band_b])
+
+        # ratio[ratio>100] = 100
+
+        x_new = np.append(x_new, ratio, axis=0)
         # print x_new.shape[0] - 1, (a, b)
 
     # print x_new.shape
@@ -362,9 +373,16 @@ def division_feature_expansion(X):
     indices = np.arange(X.shape[1])
     count=0
     for (a, b) in permutations(indices, 2):
-        offset = .1  # avoid divide by zero errors??? totally arbitrary
+        band_b = xt[b]
+        # work around divide by zero. if reflectance, is zero, make it one
+        band_b[band_b == 0] = 1
+        band_a = xt[a]
 
-        x_new = np.append(x_new, np.array([(xt[a] + offset) / (xt[b] + offset)]), axis=0)
+        ratio = np.array([band_a / band_b])
+
+        # ratio[ratio>100] = 100
+
+        x_new = np.append(x_new, ratio, axis=0)
         print (count,a,b)
         count+=1
         # print x_new.shape[0] - 1, (a, b)

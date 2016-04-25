@@ -14,10 +14,11 @@ def r2_vs_time_cutoff(times,spm_cutoff=-1):
     for index,time in enumerate(times):
         # print index,time
         x,y=regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time)],spm_cutoff=spm_cutoff)
-        x = regression.division_feature_expansion(x)
 
-        # ONLY top 5 bands
-        x = x[:,[29,9,14,28,5]]
+        top_5_bands = regression.top_5_band_ratios(x)
+        # Add to feature array
+        x = np.append(x,top_5_bands,axis=1)
+
         logy = np.log(y)
         alpha = 8
 
@@ -45,10 +46,9 @@ def r2_vs_time_cutoff(times,spm_cutoff=-1):
 def plot_r2_over_time_diff():
     times = np.array([1,2,4,8,12,16,20,24])
     r2s,num_data = r2_vs_time_cutoff(times)
-    # log r2 below
-    # r2s,num_data = [ 0.508,  0.54,   0.516,  0.415,  0.415,  0.415,  0.433,  0.417], [ 61, 126, 234, 281, 281, 281, 298, 480]
+    # model on 5 band ratios and 6 reflectances
     # unlogged r2 below
-    # r2s,num_data = [ 0.638,  0.503,  0.348,  0.485,  0.485,  0.485,  0.197,  0.297], [ 61, 126, 234, 281, 281, 281, 298, 480]
+    # r2s,num_data = [ 0.702  0.655  0.432  0.106  0.106  0.106  0.045  0.17 ], [ 61, 126, 234, 281, 281, 281, 298, 480]
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -230,6 +230,6 @@ if __name__ == '__main__':
     # make_huber_train()
     # make_huber_test()
     # [make_huber_train_band_ratios(i) for i in [2,4,8]]
-    make_huber_train_band_ratios(2)
-    # plot_r2_over_time_diff()
+    # make_huber_train_band_ratios(2)
+    plot_r2_over_time_diff()
     # r2_vs_time_cutoff([8])
