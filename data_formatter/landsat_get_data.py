@@ -85,16 +85,23 @@ def get_cfmask(all_imgs):
     assert cf is not None
     return cf
 
+def get_cloud_adjacent(all_imgs):
+    for x in all_imgs:
+        if 'cloud' in x and 'adjacent' in x:
+            print x
+            return x
+    return None
+
 
 def get_cloud(all_imgs):
     '''
     :param all_imgs: list of all tif paths
     :return: path to cloud tif
     '''
-    cloud = [x for x in all_imgs if 'cloud' in x][0]
+    cloud = [x for x in all_imgs if ('cloud' in x and not 'adjacent' in x)][0]
+    print cloud
     assert cloud is not None
     return cloud
-
 
 def get_metadata_path(scene_folder):
     '''
@@ -214,6 +221,7 @@ def get_landsat_data((station_locs_dict, station_image_coors_dict)):
         sr_paths = get_sr_band_imgs(imgs)
         cf_path = get_cfmask(imgs)
         cloud_path = get_cloud(imgs)
+        cloud_adj_path = get_cloud_adjacent(imgs)
 
         #print scene_folder
         spacecraft_ID = get_landsat_spacecraft_ID(scene_folder)
@@ -241,7 +249,12 @@ def get_landsat_data((station_locs_dict, station_image_coors_dict)):
             data['cf_mask_quality'] = np.append(data['cf_mask_quality'], cf)
 
         # write cloud mask into dictionary
-        cloud_img = cv2.imread(cloud_path, cv2.IMREAD_ANYDEPTH)
+        # count adjacent clouds as cloud
+        if cloud_adj_path is not None:
+            cloud_img = cv2.imread(cloud_path, cv2.IMREAD_ANYDEPTH) + cv2.imread(cloud_adj_path,cv2.IMREAD_ANYDEPTH)
+        else:
+            cloud_img = cv2.imread(cloud_path, cv2.IMREAD_ANYDEPTH)
+
         for ID in station_image_coors_dict.keys():
             cloud = cloud_img[tuple(station_image_coors_dict[ID])]  # need the tuple cast if station returns an array
             data['cloud'] = np.append(data['cloud'], cloud)
@@ -694,12 +707,12 @@ if __name__ == '__main__':
 
     #### workflow for creating landsat/polaris data
     # get_image_xy_in_scene_for_lat_long(path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/station_img_coordinates.csv')
-    # time_and_write_landsat_data()
-    # convert_polaris_to_UTC()
-    # convert_landsat_to_UTC()
-    # filtered = create_final_filtered_csv()
-    # print filtered
-    # create_varied_cutoff_csvs()
+    time_and_write_landsat_data()
+    convert_polaris_to_UTC()
+    convert_landsat_to_UTC()
+    filtered = create_final_filtered_csv()
+    print filtered
+    create_varied_cutoff_csvs()
 
 
     #### workflow for matching landsat data with usgs data:

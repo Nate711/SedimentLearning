@@ -11,6 +11,7 @@ def r2_vs_time_cutoff(times,spm_cutoff=-1):
     r2s = np.zeros_like(times,dtype='float64')
     num_data = np.zeros_like(times,dtype='int32')
 
+    thetas = np.array([]).reshape(9,0)
     for index,time in enumerate(times):
         # print index,time
         x,y=regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time)],spm_cutoff=spm_cutoff)
@@ -40,16 +41,23 @@ def r2_vs_time_cutoff(times,spm_cutoff=-1):
         r2s[index] = r2_train_unlog
         num_data[index] = x.shape[0]
 
+        # TODO fix this bug, thetas is 1d array
+        thetas = np.append(thetas,model['theta'],axis=1)
+
         print r2s,num_data
+    print thetas
+    # TODO, fix division
+    print np.divide(thetas[1],thetas[0])
     return r2s,num_data
 
 def plot_r2_over_time_diff():
     times = np.array([1,2,4,8,12,16,20,24])
     r2s,num_data = r2_vs_time_cutoff(times)
     # model on 5 band ratios and 6 reflectances
-    # unlogged r2 below
+    # unlogged r2 below, ONLY ADJACENT CLOUD POINTS DELETED
     # r2s,num_data = [ 0.702  0.655  0.432  0.106  0.106  0.106  0.045  0.17 ], [ 61, 126, 234, 281, 281, 281, 298, 480]
-
+    # unlogged r2 below, ALL POINTS UNDER CLOUD AND ADJACENT DELETED
+    # [ 0.883  0.697  0.447  0.204  0.204  0.204  0.216  0.162] [ 34  75 157 185 185 185 197 302]
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax1plot = ax.plot(times, r2s, 'ob')
@@ -59,7 +67,7 @@ def plot_r2_over_time_diff():
 
     ax.set_xticks(times)
 
-    ax.legend(ax1plot+ax2plot,['R^2','Number of Samples'],loc=2)
+    ax.legend(ax1plot+ax2plot,['R^2','Number of Samples'],loc='upper right')
     # ax2.legend('Num Samples')
     # ax.legend(loc=1)
     # ax2.legend(loc=2)
@@ -69,7 +77,7 @@ def plot_r2_over_time_diff():
     ax.set_xlabel('Data Collection Time Difference Threshold (hrs)')
     ax.set_ylabel('R^2 of Robust Regression')
 
-    ax.axis([0,26,0,.8])
+    ax.axis([0,26,0,.9])
     ax2.axis([0,26,0,500])
 
     # print (max(np.max(y_pred), np.max(y_test))- np.min(np.min(y_pred), 0))*5./6. - np.min(np.min(y_pred), 0)
@@ -127,7 +135,7 @@ def make_huber_train_band_ratios(time_cutoff,spm_cutoff=-1):
 
     ax.plot(y_train_pred, y_train, '.b',label='Training Data')
     ax.plot(y_pred, y_test, '.r',label='Test Data')
-    ax.plot(np.arange(0, 1.2*np.max(y_test), .1), np.arange(0, 1.2*np.max(y_test), .1), '-k')
+    ax.plot(np.arange(0, 1.2*max(np.max(y_test),np.max(y_train)), .1), np.arange(0, 1.2*max(np.max(y_train),np.max(y_test)), .1), '-k')
 
     ax.legend()
 
@@ -158,7 +166,7 @@ def make_huber_train_band_ratios(time_cutoff,spm_cutoff=-1):
     ax.plot(y_pred, y_test, '.r',label='Test Data')
     ax.legend()
 
-    ax.plot(np.arange(0, 1.2*np.max(y_test), .1), np.arange(0, 1.2*np.max(y_test), .1), '-k')
+    ax.plot(np.arange(0, 1.2*max(np.max(y_test),np.max(y_train)), .1), np.arange(0, 1.2*max(np.max(y_train),np.max(y_test)), .1), '-k')
     fig.suptitle('Reconstruction Ability of Robust Regression Model on \n5 Most Correlated Band Ratios and 6 Surface Reflectances using {}hr Data'.format(time_cutoff))
     ax.set_xlabel('Remotely Sensed SPM (mg/L)')
     ax.set_ylabel('In situ measure SPM (mg/L)')
@@ -229,7 +237,7 @@ def make_huber_train():
 if __name__ == '__main__':
     # make_huber_train()
     # make_huber_test()
-    # [make_huber_train_band_ratios(i) for i in [2,4,8]]
+    # [make_huber_train_band_ratios(i) for i in [1,2,4,8]]
     # make_huber_train_band_ratios(2)
     plot_r2_over_time_diff()
     # r2_vs_time_cutoff([8])
