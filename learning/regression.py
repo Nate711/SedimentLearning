@@ -43,7 +43,8 @@ Y_CODE = 'Calculated SPM'
 '''
 
 # top_5_ratio_indices = [10,17,11,28,23] #old bands with mixed up bands
-top_5_ratio_indices = [5,11,16,10,17] # best bands on 2hr data
+top_5_ratio_indices = [5, 11, 16, 10, 17]  # best bands on 2hr data
+
 
 def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_alpha=0, title=''):
     # print 'Ridge regression alpha =', this_alpha
@@ -123,7 +124,7 @@ def kfolds_ridge(x_data1, y_data1, param):
 def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7'],
              y_names=['Calculated SPM'],
              filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv'],
-             Y_CODE='Calculated SPM',spm_cutoff = None):
+             Y_CODE='Calculated SPM', spm_cutoff=None):
     # TODO use pandas csv reader methods instead of for loop weirdness
     """
     Read in data from csv files.
@@ -191,10 +192,10 @@ def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5'
 
     X = np.zeros_like(x_dict.values())
 
-    for index,value in enumerate(x_names):
+    for index, value in enumerate(x_names):
         X[index] = x_dict[value]
 
-    assert(np.array_equal(X[0], x_dict[x_names[0]]))
+    assert (np.array_equal(X[0], x_dict[x_names[0]]))
 
     # The shape of y is (7,) because it's non-rectangular, each row in y has a different length
     # Each row of x is the same length so it reads (3003,12)
@@ -204,8 +205,8 @@ def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5'
     # print X.shape,Y.shape
     # print Y
     X = X.T
-    if(spm_cutoff != None):
-        indices = [Y<spm_cutoff]
+    if (spm_cutoff != None):
+        indices = [Y < spm_cutoff]
         # print indices
         # print X.shape,Y.shape
         Y = Y[indices]
@@ -325,6 +326,7 @@ def simple_ridgeCV(X, y):
     graph_actual_SPM_vs_predicted_SPM(y, y_predict)
     return clf
 
+
 def top_5_band_ratios(X):
     '''
     index = first index*(num ratios-1) + second index - 1
@@ -346,7 +348,7 @@ def top_5_band_ratios(X):
     # top_5_ratio_indices = [10,17,11,28,23]
     # old indices [(5,4),(1,5),(2,5),(5,3),(1,0)]
 
-    for (a,b) in  [(2,0),(3,2),(2,1),(5,3),(4,3)]:
+    for (a, b) in [(2, 0), (3, 2), (2, 1), (5, 3), (4, 3)]:
         # offset = .1 # avoid divide by zero errors??? totally arbitrary
         # ratio = np.array([(xt[a] + offset) / (xt[b] + offset)])
 
@@ -361,9 +363,10 @@ def top_5_band_ratios(X):
 
         x_new = np.append(x_new, ratio, axis=0)
         # print x_new.shape[0] - 1, (a, b)
-    assert np.array_equal(X,xold)
+    assert np.array_equal(X, xold)
     # print x_new.shape
     return x_new.T
+
 
 def division_feature_expansion(X):
     '''
@@ -382,7 +385,7 @@ def division_feature_expansion(X):
     x_new = np.array([]).reshape(0, X.shape[0])
 
     indices = np.arange(X.shape[1])
-    count=0
+    count = 0
     for (a, b) in permutations(indices, 2):
         band_b = xt[b]
         # work around divide by zero. if reflectance, is zero, make it one
@@ -394,8 +397,8 @@ def division_feature_expansion(X):
         # ratio[ratio>100] = 100
 
         x_new = np.append(x_new, ratio, axis=0)
-        print (count,a,b)
-        count+=1
+        print (count, a, b)
+        count += 1
         # print x_new.shape[0] - 1, (a, b)
 
     # print x_new.shape
