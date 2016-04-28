@@ -4,6 +4,7 @@ import numpy as np
 import data_formatter.landsat_get_data as lgd
 import cv2
 import glob
+import pandas as pd
 
 
 def print_theta():
@@ -31,7 +32,9 @@ def get_feature_array(scene_folder_path):
     imgs = lgd.get_scene_imgs(scene_folder_path)
     # get the paths for the different types of image
     sr_paths = lgd.get_sr_band_imgs(imgs)
-    for path, band in zip(sr_paths, data.keys()):
+
+    for path, band in zip(sr_paths, data_columns):
+        # print path, band
         data[band] = cv2.imread(path, cv2.IMREAD_ANYDEPTH)
 
         if image_shape is np.nan:
@@ -52,14 +55,21 @@ def get_feature_array(scene_folder_path):
 
     # Transpose the data
     full_data = full_data.T
+
+    assert np.array_equal(full_data[:,0], data['reflec_1'])
     print('Loaded surface reflectance tifs. Calculating band ratios...')
 
-    #
-    top_5_band_ratios = regression.top_5_band_ratios(full_data)
+    top_5_band_ratios_array = regression.top_5_band_ratios(full_data)
+    print 'Sum square differences: ' + str(np.sum(np.power(full_data[:,0] - data['reflec_1'] ,2)))
+    assert np.array_equal(full_data[:,0], data['reflec_1'])
     # Add to feature array
-    full_data = np.append(full_data, top_5_band_ratios, axis=1)
+    full_data = np.append(full_data, top_5_band_ratios_array, axis=1)
 
     print('Finished loading regression features: 5 band ratios + 6 surface reflectances')
+
+    print 'Sum square differences: ' + str(np.sum(np.power(full_data[:,0] - data['reflec_1'] ,3)))
+    # print full_data[:,0] - data['reflec_1']
+    assert np.array_equal(full_data[:,0], data['reflec_1'])
 
     return full_data, image_shape
 
@@ -68,7 +78,7 @@ def create_model():
     print('Training robust regression')
     x, y = regression.get_data(
         filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv'],
-        spm_cutoff=-1)  # 2hr data
+        spm_cutoff=None)  # 2hr data
 
     # Get top 5 correlated band ratios
     top_5_bands = regression.top_5_band_ratios(x)
@@ -101,12 +111,12 @@ def create_color_map(scene_path=''):
     scene_data, image_shape = get_feature_array(scene_path)
 
     color_img = np.zeros((image_shape[0],image_shape[1],3))
-    color_img[:,:,0] = scene_data[:,2].reshape(image_shape) # red
-    color_img[:,:,1] = scene_data[:,1].reshape(image_shape) # green
-    color_img[:,:,2] = scene_data[:,0].reshape(image_shape) # blue
+    color_img[:,:,0] = scene_data[:,0].reshape(image_shape) # blue - band 1
+    color_img[:,:,1] = scene_data[:,1].reshape(image_shape) # green - band 2
+    color_img[:,:,2] = scene_data[:,2].reshape(image_shape) # red - band 3
 
     # scale values
-    color_img = color_img*255./6000.
+    color_img = color_img*255./4000.
 
     all_imgs = lgd.get_scene_imgs(scene_path)
     scene_name = lgd.get_scene_name(all_imgs[0])
@@ -183,14 +193,16 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=True,color_flag = Tru
          # 1 if water, 0 if not water
         spm_map_color[:,:,0][water==0] = 0
         spm_map_color[:,:,2][water==0] = 0
-        spm_map_color[:,:,1][water==0] += 50
+        spm_map_color[:,:,1][water==0] += 100 # green
         # let green channel be equal to spm to shade land mass
 
         spm_map_color[:,:,0][cloud==1] = 0
         spm_map_color[:,:,1][cloud==1] = 0
-        spm_map_color[:,:,2][cloud==1] += 50
-        # let blue channel be equal to spm to shade land mass
+        spm_map_color[:,:,2][cloud==1] += 100 # red
+        # let blue channel be equal to spm to shade cloud mass
 
+    df = pd.DataFrame(spm_map.ravel())
+    print df.describe()
 
     scene_name = lgd.get_scene_name(all_imgs[0])
     log_str = ('log_' if log_spm_flag else '')
@@ -211,10 +223,10 @@ if __name__ == '__main__':
                      'LT50440342007234PAC01', 'LT50440342008253PAC01', 'LT50440342009079PAC01', 'LT50440342009239PAC01',
                      'LT50440342009271PAC01', 'LT50440342010194PAC01', 'LT50440342010274PAC01', 'LT50440342011165PAC02']
     # two_hr_scenes = ['LE70440342003055EDC00']
-    # two_hr_scenes = ['LE70440342003071EDC00']
+    # two_hr_scenes = ['LT50440342007234PAC01']
 
     for scene in two_hr_scenes:
         path = glob.glob('/Users/Nathan/Dropbox/SedimentLearning/data/landsat/' + scene[:-5] + '*')[0] + '/'
         print path
-        # create_spm_map(theta, scene_path=path, log_spm_flag=True)
+        create_spm_map(theta, scene_path=path, log_spm_flag=True)
         create_color_map(scene_path=path)

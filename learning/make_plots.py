@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.metrics import r2_score
 seed = 4
 
-def r2_vs_time_cutoff(times,spm_cutoff=-1):
+def r2_vs_time_cutoff(times,spm_cutoff=None):
     # times = np.array([1,2,4])
 
     r2s = np.zeros_like(times,dtype='float64')
@@ -15,7 +15,7 @@ def r2_vs_time_cutoff(times,spm_cutoff=-1):
     for index,time in enumerate(times):
         # print index,time
         x,y=regression.get_data(filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time)],spm_cutoff=spm_cutoff)
-
+        print x.shape
         top_5_bands = regression.top_5_band_ratios(x)
         # Add to feature array
         x = np.append(x,top_5_bands,axis=1)
@@ -24,10 +24,13 @@ def r2_vs_time_cutoff(times,spm_cutoff=-1):
         alpha = 8
 
         model = mycvx.kfolds_convex(x, logy, alpha, random_seed=seed)
+
         y_test = model['data']['y_test']
         y_pred = model['data']['y_pred']
         y_train = model['data']['y_train']
         y_train_pred = model['data']['y_train_pred']
+
+        # print model['theta']
 
 
         r2_test = np.round(r2_score(y_test, y_pred), 3)
@@ -42,12 +45,12 @@ def r2_vs_time_cutoff(times,spm_cutoff=-1):
         num_data[index] = x.shape[0]
 
         # TODO fix this bug, thetas is 1d array
-        thetas = np.append(thetas,model['theta'],axis=1)
+        # thetas = np.append(thetas,model['theta'],axis=1)
 
         print r2s,num_data
-    print thetas
+    # print thetas
     # TODO, fix division
-    print np.divide(thetas[1],thetas[0])
+    # print np.divide(thetas[1],thetas[0])
     return r2s,num_data
 
 def plot_r2_over_time_diff():
@@ -237,7 +240,7 @@ def make_huber_train():
 if __name__ == '__main__':
     # make_huber_train()
     # make_huber_test()
-    # [make_huber_train_band_ratios(i) for i in [1,2,4,8]]
+    [make_huber_train_band_ratios(i) for i in [1,2,4,8]]
     # make_huber_train_band_ratios(2)
-    plot_r2_over_time_diff()
+    # plot_r2_over_time_diff()
     # r2_vs_time_cutoff([8])

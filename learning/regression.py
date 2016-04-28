@@ -42,6 +42,9 @@ Y_CODE = 'Calculated SPM'
 
 '''
 
+# top_5_ratio_indices = [10,17,11,28,23] #old bands with mixed up bands
+top_5_ratio_indices = [5,11,16,10,17] # best bands on 2hr data
+
 def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_alpha=0, title=''):
     # print 'Ridge regression alpha =', this_alpha
     """
@@ -120,7 +123,7 @@ def kfolds_ridge(x_data1, y_data1, param):
 def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7'],
              y_names=['Calculated SPM'],
              filenames=['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv'],
-             Y_CODE='Calculated SPM',spm_cutoff = -1):
+             Y_CODE='Calculated SPM',spm_cutoff = None):
     # TODO use pandas csv reader methods instead of for loop weirdness
     """
     Read in data from csv files.
@@ -186,7 +189,12 @@ def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5'
         print (y_dict[n]).shape
     '''
 
-    X = np.array(x_dict.values())
+    X = np.zeros_like(x_dict.values())
+
+    for index,value in enumerate(x_names):
+        X[index] = x_dict[value]
+
+    assert(np.array_equal(X[0], x_dict[x_names[0]]))
 
     # The shape of y is (7,) because it's non-rectangular, each row in y has a different length
     # Each row of x is the same length so it reads (3003,12)
@@ -196,7 +204,7 @@ def get_data(x_names=['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5'
     # print X.shape,Y.shape
     # print Y
     X = X.T
-    if(spm_cutoff != -1):
+    if(spm_cutoff != None):
         indices = [Y<spm_cutoff]
         # print indices
         # print X.shape,Y.shape
@@ -330,12 +338,15 @@ def top_5_band_ratios(X):
     :return: new matrix with each column as the ratio between two of the original feature arrays
              the returned matrix does not contain the original columns
     '''
-    xt = X.T
+    xold = X
+    xt = np.copy(X.T)
 
     x_new = np.array([]).reshape(0, X.shape[0])
 
-    indices = np.arange(X.shape[1])
-    for (a,b) in [(5,4),(1,5),(2,5),(5,3),(1,0)]:
+    # top_5_ratio_indices = [10,17,11,28,23]
+    # old indices [(5,4),(1,5),(2,5),(5,3),(1,0)]
+
+    for (a,b) in  [(2,0),(3,2),(2,1),(5,3),(4,3)]:
         # offset = .1 # avoid divide by zero errors??? totally arbitrary
         # ratio = np.array([(xt[a] + offset) / (xt[b] + offset)])
 
@@ -350,7 +361,7 @@ def top_5_band_ratios(X):
 
         x_new = np.append(x_new, ratio, axis=0)
         # print x_new.shape[0] - 1, (a, b)
-
+    assert np.array_equal(X,xold)
     # print x_new.shape
     return x_new.T
 
@@ -431,7 +442,7 @@ def Han_EA_MB_LANDSAT():
     x_names = ['reflec_1', 'reflec_2', 'reflec_3']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
 
     X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
     # X col 0 is band1, col 1 is band2, col 2 is band3
@@ -468,21 +479,21 @@ def Han_EA_BR():
     do log(spm) = log(a0) + a1*X?
     :return:
     '''
-    x_names = ['reflec_2', 'reflec_4']
-    # col 0 is lambda2, col 1 is lambda 1
+    x_names = ['reflec_4', 'reflec_2']
+    # col 0 is lambda1, col 1 is lambda 2
     y_names = ['Calculated SPM']
 
     filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
     X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE=y_names[0])
 
-    X1 = np.divide(X[:, 1], X[:, 0])
+    X1 = np.divide(X[:, 0], X[:, 1])
 
     logy = np.log10(y)
     A0 = np.ones(logy.shape)
 
     new_X = np.array([A0, X1]).T
-    print new_X
-    print logy
+    # print new_X
+    # print logy
 
     log_alphas = np.array(np.arange(-15, 15, 0.25), dtype='float64')
     alphas = 2 ** log_alphas
@@ -533,7 +544,7 @@ def empirical_band_ratio_with_k490():
     # get data
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
     y_names = ['Calculated SPM']
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
     X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
 
     # regression on log spm
@@ -542,7 +553,7 @@ def empirical_band_ratio_with_k490():
     # get top 5 correlated band ratios
     X = division_feature_expansion(X)
     # ONLY top 5 bands
-    X = X[:, [29, 9, 14, 28, 5]]
+    X = X[:, top_5_ratio_indices]
 
     # k490 = 0.016 + 0.1565*  np.power(float(row['reflec_1'])/float(row['reflec_2']),  -1.540 )
     k490 = 0.016 + 0.1565 * np.power(np.divide(X[:, 0], X[:, 1]), -1.540)
@@ -597,7 +608,7 @@ def empirical_band_ratio():
     x_names = ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7']
     y_names = ['Calculated SPM']
 
-    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_8hr.csv']
+    filenames = ['/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_2hr.csv']
 
     X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
     y1 = np.log(y)
@@ -605,6 +616,7 @@ def empirical_band_ratio():
     # make X only ratios between bands
     # X = np.append(X,division_feature_expansion(X),axis=1)
     X = division_feature_expansion(X)
+    # X = top_5_band_ratios(X)
     '''
     Ratios with highest correlation on 8 hour data
     29: 1.91
@@ -642,7 +654,7 @@ def empirical_band_ratio():
     graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict))
 
     # ONLY top 5 bands
-    X = X[:, [29, 9, 14, 28, 5]]
+    X = X[:, top_5_ratio_indices]
     # ONLY top 3 bands
     # X = X[:,[29,9,14]]
 
@@ -705,11 +717,11 @@ if __name__ == '__main__':
     # main()
     ## DO LANDSAT REGRESSION
 
-    # EA_MB_LANDSAT()
+    # Han_EA_MB_LANDSAT()
     # EA_MB_MERIS()
-    # EA_BR()
-    empirical_band_ratio()
-    # empirical_band_ratio_with_k490()
+    # Han_EA_BR()
+    # empirical_band_ratio()
+    empirical_band_ratio_with_k490()
 ''' NOTES
 
 landsat 8 band | wavelength | landsat 4,5,7 band
