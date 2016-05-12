@@ -547,7 +547,7 @@ def create_final_filtered_csv(
 
     # drop data where the reflectances are out of valid range: 0-10000
     for band in ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_6', 'reflec_7']:
-        filtered_df.drop(filtered_df.index[np.where(filtered_df[band] > 10000)], inplace=True)
+        filtered_df.drop(filtered_df.index[np.where(filtered_df[band] > 10000) or filtered_df[band] < 0], inplace=True)
 
 
     # remove data which is covered by clouds
@@ -707,9 +707,9 @@ if __name__ == '__main__':
 
     #### workflow for creating landsat/polaris data
     # get_image_xy_in_scene_for_lat_long(path = '/Users/Nathan/Desktop/Turbidity/SedimentLearning/data_formatter/station_img_coordinates.csv')
-    time_and_write_landsat_data()
-    convert_polaris_to_UTC()
-    convert_landsat_to_UTC()
+    # time_and_write_landsat_data()
+    # convert_polaris_to_UTC()
+    # convert_landsat_to_UTC()
     filtered = create_final_filtered_csv()
     print filtered
     create_varied_cutoff_csvs()

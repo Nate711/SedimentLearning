@@ -67,12 +67,15 @@ def get_feature_array(scene_folder_path):
 
 
     print('Finished loading regression features: 5 band ratios + 6 surface reflectances')
-    
+
     # Remove plain reflectances for testing of the white splotches
     # full_data = full_data[:,6:]
 
     # Remove specific columns in full_data to test where white splotches are coming from
     # full_data[:,10] = 0
+
+    # Test on only one band
+    # full_data = full_data[:,1:2]
 
     return full_data, image_shape
 
@@ -96,12 +99,8 @@ def create_model():
     # Remove plain reflectances for testing of the white splotches
     # x = x[:,6:]
 
-    '''
-    # Get top 3 correlated band ratios
-    top_3_bands = regression.division_feature_expansion(x)[:,[29,9,14,28,5]]
-    # Add to feature array
-    x = np.append(x,top_3_bands,axis=1)
-    '''
+    # Test on only one band
+    # x = x[:,1:2]
 
     # log spm regression
     logy = np.log(y)
@@ -176,7 +175,7 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=Tru
         # high log(spm) values are around 4 so 256/4 =64
         spm_map = spm_map * 64
     else:
-        print 'not log'
+        # print 'not log'
         spm_map = predicted_spm.reshape(image_shape)
         # spm_map[spm_map>500] = 500
         spm_map[spm_map < 0] = 0
@@ -256,5 +255,5 @@ if __name__ == '__main__':
     for scene in two_hr_scenes:
         path = glob.glob('/Users/Nathan/Dropbox/SedimentLearning/data/landsat/' + scene[:-5] + '*')[0] + '/'
         print path
-        create_spm_map(theta, scene_path=path, log_spm_flag=False)
+        create_spm_map(theta, scene_path=path, log_spm_flag=True)
         # create_color_map(scene_path=path)

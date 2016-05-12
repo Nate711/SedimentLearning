@@ -333,8 +333,9 @@ def top_5_band_ratios(X):
     num ratios = 6
 
     IMPORTANT: BANDS MUST BE IN ORDER: 1,2,3,4,5,7
-    top 5 indices correlated to log(spm): 29,9,14,28,5
-    these are associated with (5,4),(1,5),(2,5),(5,3),(1,0)
+    top 5 indices correlated to log(spm): [10,17,11,28,23]
+    these are associated with (2, 0), (3, 2), (2, 1), (5, 3), (4, 3)
+    these are: band 3/1, band 4/3, band 3/2, band 7/4, band 5/4
 
     :param X: input matrix with each datum as a row
     :return: new matrix with each column as the ratio between two of the original feature arrays
