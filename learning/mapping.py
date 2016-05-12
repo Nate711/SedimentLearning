@@ -77,7 +77,13 @@ def get_feature_array(scene_folder_path):
     # Test on only one band
     # full_data = full_data[:,1:2]
 
-    return full_data, image_shape
+    # create matrix representing valid data
+    valid_data = np.ones_like(data['reflec_1'])
+    for band in range(6):
+        valid_data[full_data[:,band] < 0] = 0
+        valid_data[full_data[:,band] > 10000] = 0
+
+    return full_data, image_shape, valid_data
 
 
 def create_model():
@@ -114,10 +120,10 @@ def create_model():
     y_train = model['data']['y_train']
     y_train_pred = model['data']['y_train_pred']
 
-    r2_test = np.round(r2_score(y_test, y_pred), 3)
-    r2_train = np.round(r2_score(y_train, y_train_pred), 3)
+    r2_test = np.round(r2_score(np.exp(y_test), np.exp(y_pred)), 3)
+    r2_train = np.round(r2_score(np.exp(y_train), np.exp(y_train_pred)), 3)
 
-    print('Done training robust regression. R2 train = {}. Starting SPM prediction calculation...'.format(r2_train))
+    print('Done training robust regression. True scale R2 train = {}. Starting SPM prediction calculation...'.format(r2_train))
 
     return theta
 
@@ -128,7 +134,7 @@ def create_color_map(scene_path=''):
     :param scene_path:
     :return:
     '''
-    scene_data, image_shape = get_feature_array(scene_path)
+    scene_data, image_shape, valid = get_feature_array(scene_path)
 
     color_img = np.zeros((image_shape[0], image_shape[1], 3))
     color_img[:, :, 0] = scene_data[:, 0].reshape(image_shape)  # blue - band 1
@@ -160,7 +166,7 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=Tru
     else:
         print('Using given theta. Creating predicted SPM map')
 
-    scene_data, image_shape = get_feature_array(scene_path)
+    scene_data, image_shape, valid = get_feature_array(scene_path)
 
     predicted_spm_log = np.dot(scene_data, theta)
     predicted_spm = np.exp(predicted_spm_log)
@@ -187,7 +193,6 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=Tru
     # make darker areas correspond to higher turbidity
     spm_map = 255 - np.array(spm_map, dtype='uint8')
 
-    all_imgs = lgd.get_scene_imgs(scene_path)
 
     if (color_flag):
         # want water to be grayscale
@@ -200,6 +205,8 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=Tru
         spm_map_color[:, :, 1] = spm_map  # green - land
         spm_map_color[:, :, 2] = spm_map  # bue - cloud
 
+        # color code image by cloud and land
+        all_imgs = lgd.get_scene_imgs(scene_path)
         cloud_path = lgd.get_cloud(all_imgs)
         print 'Cloud tif path: ' + str(cloud_path)
         cloud = cv2.imread(cloud_path, cv2.IMREAD_ANYDEPTH)
@@ -220,7 +227,13 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=Tru
         spm_map_color[:, :, 0][cloud == 1] = 0
         spm_map_color[:, :, 1][cloud == 1] = 0
         spm_map_color[:, :, 2][cloud == 1] += 100  # red
-        # let blue channel be equal to spm to shade cloud mass
+        # let red channel be equal to spm to shade cloud mass
+
+        # color code non-valid data spots as red
+        valid_shaped = valid.reshape(image_shape)
+        spm_map_color[:, :, 0][valid_shaped == 0] = 0
+        spm_map_color[:, :, 1][valid_shaped == 0] = 0
+        spm_map_color[:, :, 2][valid_shaped == 0] += 100  # red
 
     # Convert image to dataframe and print numerical summary of spm data (exluding land spm)
     df = pd.DataFrame(spm_map[water == 1].ravel())
@@ -236,7 +249,8 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=Tru
     scene_name = lgd.get_scene_name(all_imgs[0])
     log_str = ('log_' if log_spm_flag else '')
     color_str = ('_color' if color_flag else '')
-    cv2.imwrite('../figures/{}spm_map{}_{}.jpg'.format(log_str, color_str, scene_name),
+    folder = log_str + 'spm_maps' + ('_color' if color_flag else '')
+    cv2.imwrite('../figures/{}/{}spm_map{}_{}.jpg'.format(folder,log_str, color_str, scene_name),
                 spm_map_color if color_flag else spm_map)
 
 

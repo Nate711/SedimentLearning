@@ -18,6 +18,10 @@ landsat 8 band | wavelength           | landsat 4,5,7 band
              7 | 2110 - 2290 SWIR 2   | 7
              8 | 500-680 panchromatic | 8
           none | IR                   | 6
+   
+http://landsat.usgs.gov/documents/cdr_sr_product_guide.pdf
+^ Explains valid data range
+
 *Meris (Coast color) bands*
 http://www.coastcolour.org/publications/Coastcolour-PUG-v2.2.pdf
 page 28

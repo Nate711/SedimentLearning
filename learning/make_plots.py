@@ -263,10 +263,12 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
         spm_cutoff=spm_cutoff)  # 8hr data
 
     # Get top 5 correlated band ratios
-    # top_5_bands = regression.division_feature_expansion(x)[:,[29,9,14,28,5]]
     top_5_bands = regression.top_5_band_ratios(x)
     # Add to feature array
     x = np.append(x, top_5_bands, axis=1)
+
+    # exclude band 5 and 7 and last two band ratios which include them
+    # x = x[:,[0,1,2,3,6,7,8]]
 
     '''
     # Get top 3 correlated band ratios
@@ -414,8 +416,8 @@ if __name__ == '__main__':
     # make_huber_train()
     # make_huber_test()
     # [make_huber_train_band_ratios(i) for i in [1,2,4,8]]
-    # make_huber_train_band_ratios(2)
+    make_huber_train_band_ratios(2)
     # make_huber_train_EA_MB(2)
-    make_huber_train_basic(2)
+    # make_huber_train_basic(2)
     # plot_r2_over_time_diff()
     # r2_vs_time_cutoff([8])
