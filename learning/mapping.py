@@ -5,19 +5,15 @@ import data_formatter.landsat_get_data as lgd
 import cv2
 import glob
 import pandas as pd
-
-
-def print_theta():
-    # TODO write this
-    return 0
-
+from sklearn.metrics import r2_score
 
 def get_feature_array(scene_folder_path):
     # TODO: fill this out
     '''
     Load the images in the scene folder into an array that the model can read. The format is:
+    ['reflec_1', 'reflec_2', 'reflec_3', 'reflec_4', 'reflec_5', 'reflec_7', ratio1, ratio2, ratio3, ratio4, ratio5]
 
-    :param scene_folder_path:
+    :param scene_folder_path: full path to folder of scene
     :return:
     '''
 
@@ -57,20 +53,26 @@ def get_feature_array(scene_folder_path):
     # Transpose the data
     full_data = full_data.T
 
+    # make sure the first column is reflec 1
     assert np.array_equal(full_data[:, 0], data['reflec_1'])
     print('Loaded surface reflectance tifs. Calculating band ratios...')
 
+    # Add band ratios to feature array
     top_5_band_ratios_array = regression.top_5_band_ratios(full_data)
-    print 'Sum square differences: ' + str(np.sum(np.power(full_data[:, 0] - data['reflec_1'], 2)))
-    assert np.array_equal(full_data[:, 0], data['reflec_1'])
-    # Add to feature array
     full_data = np.append(full_data, top_5_band_ratios_array, axis=1)
 
-    print('Finished loading regression features: 5 band ratios + 6 surface reflectances')
-
-    print 'Sum square differences: ' + str(np.sum(np.power(full_data[:, 0] - data['reflec_1'], 3)))
-    # print full_data[:,0] - data['reflec_1']
+    # make sure the first column is still reflec 1
+    # print 'Sum square differences: ' + str(np.sum(np.power(full_data[:, 0] - data['reflec_1'], 2)))
     assert np.array_equal(full_data[:, 0], data['reflec_1'])
+
+
+    print('Finished loading regression features: 5 band ratios + 6 surface reflectances')
+    
+    # Remove plain reflectances for testing of the white splotches
+    # full_data = full_data[:,6:]
+
+    # Remove specific columns in full_data to test where white splotches are coming from
+    # full_data[:,10] = 0
 
     return full_data, image_shape
 
@@ -83,8 +85,16 @@ def create_model():
 
     # Get top 5 correlated band ratios
     top_5_bands = regression.top_5_band_ratios(x)
+
     # Add to feature array
     x = np.append(x, top_5_bands, axis=1)
+    # Shape of x is (75,11)
+
+    # Remove specific columns in x to test where white splotches are coming from
+    # x[:,10] = 0
+
+    # Remove plain reflectances for testing of the white splotches
+    # x = x[:,6:]
 
     '''
     # Get top 3 correlated band ratios
@@ -99,14 +109,23 @@ def create_model():
     seed = 4
     model = mycvx.kfolds_convex(x, logy, alpha, random_seed=seed)
     theta = model['theta']
-    print('Done training robust regression. Starting SPM prediction calculation...')
+
+    y_test = model['data']['y_test']
+    y_pred = model['data']['y_pred']
+    y_train = model['data']['y_train']
+    y_train_pred = model['data']['y_train_pred']
+
+    r2_test = np.round(r2_score(y_test, y_pred), 3)
+    r2_train = np.round(r2_score(y_train, y_train_pred), 3)
+
+    print('Done training robust regression. R2 train = {}. Starting SPM prediction calculation...'.format(r2_train))
 
     return theta
 
 
 def create_color_map(scene_path=''):
     '''
-
+    Uses the rgb bands to reconstruct a 'true color' satellite image
     :param scene_path:
     :return:
     '''
@@ -125,7 +144,7 @@ def create_color_map(scene_path=''):
     cv2.imwrite('../figures/color_map_{}.jpg'.format(scene_name), color_img)
 
 
-def create_spm_map(theta=None, scene_path='', log_spm_flag=True, color_flag=True):
+def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=True):
     '''
 
     For info on sr_cloud_qa and sr_land_water_qa image values
@@ -157,13 +176,14 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=True, color_flag=True
         # high log(spm) values are around 4 so 256/4 =64
         spm_map = spm_map * 64
     else:
+        print 'not log'
         spm_map = predicted_spm.reshape(image_shape)
         # spm_map[spm_map>500] = 500
         spm_map[spm_map < 0] = 0
 
         # high spm values are around 150
-        # map 0-150 to 0-256
-        # spm_map = spm_map * 256./150.
+        # map 0-50 to 0-256
+        spm_map = spm_map * 256./50.
 
     # make darker areas correspond to higher turbidity
     spm_map = 255 - np.array(spm_map, dtype='uint8')
@@ -182,7 +202,7 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=True, color_flag=True
         spm_map_color[:, :, 2] = spm_map  # bue - cloud
 
         cloud_path = lgd.get_cloud(all_imgs)
-        print cloud_path
+        print 'Cloud tif path: ' + str(cloud_path)
         cloud = cv2.imread(cloud_path, cv2.IMREAD_ANYDEPTH)
 
         cloud = np.array((cloud / 255.), dtype='uint8')
@@ -203,8 +223,16 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=True, color_flag=True
         spm_map_color[:, :, 2][cloud == 1] += 100  # red
         # let blue channel be equal to spm to shade cloud mass
 
-    df = pd.DataFrame(spm_map.ravel())
+    # Convert image to dataframe and print numerical summary of spm data (exluding land spm)
+    df = pd.DataFrame(spm_map[water == 1].ravel())
     print df.describe()
+
+    # Draw SPM legend!
+    cv2.rectangle(spm_map_color,(2200,2200),(3066,2511),(0,0,0),thickness=-1)
+    font = cv2.FONT_HERSHEY_COMPLEX
+    cv2.putText(spm_map_color,'Black = >50 mg/L',(2250,2300),font,2,(255,255,255),thickness=4)
+    cv2.putText(spm_map_color,'White = 0 mg/L',(2250,2400),font,2,(255,255,255),thickness=4)
+
 
     scene_name = lgd.get_scene_name(all_imgs[0])
     log_str = ('log_' if log_spm_flag else '')
@@ -214,23 +242,19 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=True, color_flag=True
 
 
 if __name__ == '__main__':
-    # get_image_matrix(scene_folder_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
     theta = create_model()
     # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
-    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT50440342009271-SC20160218112659/')
-    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT50440342010194-SC20160218111641/')
-    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003071-SC20160218112128/')
-    # create_spm_map(theta,scene_path='/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LE70440342003007-SC20160218112750/')
+
 
     two_hr_scenes = ['LE70440342003007EDC00', 'LE70440342003055EDC00', 'LE70440342003071EDC00', 'LE70440342012080EDC00',
                      'LE70440342012144EDC00', 'LE70440342012240EDC00', 'LE70440342014133EDC00', 'LE70440342015072EDC00',
                      'LT50440342007234PAC01', 'LT50440342008253PAC01', 'LT50440342009079PAC01', 'LT50440342009239PAC01',
                      'LT50440342009271PAC01', 'LT50440342010194PAC01', 'LT50440342010274PAC01', 'LT50440342011165PAC02']
     # two_hr_scenes = ['LE70440342003055EDC00']
-    # two_hr_scenes = ['LT50440342007234PAC01']
+    two_hr_scenes = ['LT50440342007234PAC01']
 
     for scene in two_hr_scenes:
         path = glob.glob('/Users/Nathan/Dropbox/SedimentLearning/data/landsat/' + scene[:-5] + '*')[0] + '/'
         print path
-        # create_spm_map(theta, scene_path=path, log_spm_flag=True)
-        create_color_map(scene_path=path)
+        create_spm_map(theta, scene_path=path, log_spm_flag=False)
+        # create_color_map(scene_path=path)
