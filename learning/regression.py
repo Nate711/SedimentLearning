@@ -42,10 +42,6 @@ Y_CODE = 'Calculated SPM'
 
 '''
 
-# top_5_ratio_indices = [10,17,11,28,23] #old bands with mixed up bands
-top_5_ratio_indices = [5, 11, 16, 10, 17]  # best bands on 2hr data
-
-
 def ridge_regression(x_train, x_test, y_train, y_test, save_name=np.nan, this_alpha=0, title=''):
     # print 'Ridge regression alpha =', this_alpha
     """
@@ -326,6 +322,25 @@ def simple_ridgeCV(X, y):
     graph_actual_SPM_vs_predicted_SPM(y, y_predict)
     return clf
 
+def Kau_MB_BR_features(X):
+    '''
+    Returns an array where:
+    Column 0 is reflec_1
+    Col 1 is reflec 2
+    Col 2 is reflec 3
+    Col 3 is reflec 4
+    Col 4 is reflec 2/1
+    Col 5 is reflec 3/2
+    Col 6 is reflec 4/2
+
+    These features make the best linear reg model and are used in the mapping algorithm
+
+    :param X: Filtered landsat polaris data. Must be in order: reflec_1,reflec_2,reflec_3,reflec_4,reflec_5,reflec_7
+    :return: Array for linear reg model
+    '''
+
+    # Use reflec 1,2,3,4 and ratios band 2/ band 1, band 3/ band 2, band 4/ band 2
+    return np.append(X[:,[0,1,2,3]],top_5_band_ratios(X)[:,[0,1,2]],axis=1)
 
 def top_5_band_ratios(X):
     '''
@@ -333,26 +348,21 @@ def top_5_band_ratios(X):
     num ratios = 6
 
     IMPORTANT: BANDS MUST BE IN ORDER: 1,2,3,4,5,7
-    top 5 indices correlated to log(spm): [10,17,11,28,23]
-    these are associated with (2, 0), (3, 2), (2, 1), (5, 3), (4, 3)
-    these are: band 3/1, band 4/3, band 3/2, band 7/4, band 5/4
+
+    top 5 indices correlated to log(spm): 5,11,16,10,17
+    these are associated with 1/0, 2/1, 3/1, 2/0, 3/2
+    which are band ratios: band 2/1, 3/2, 4/2, 3/1, 4/3
 
     :param X: input matrix with each datum as a row
     :return: new matrix with each column as the ratio between two of the original feature arrays
              the returned matrix does not contain the original columns
     '''
-    xold = X
     xt = np.copy(X.T)
 
     x_new = np.array([]).reshape(0, X.shape[0])
 
-    # top_5_ratio_indices = [10,17,11,28,23]
-    # old indices [(5,4),(1,5),(2,5),(5,3),(1,0)]
-
-    for (a, b) in [(2, 0), (3, 2), (2, 1), (5, 3), (4, 3)]:
-        # offset = .1 # avoid divide by zero errors??? totally arbitrary
-        # ratio = np.array([(xt[a] + offset) / (xt[b] + offset)])
-
+    # ratios 5, 11, 16, 10, 17
+    for (a, b) in [(1,0),(2,1),(3,1),(2,0),(3,2)]:
         band_b = xt[b]
         # work around divide by zero. if reflectance, is zero, make it one
         band_b[band_b == 0] = 1
@@ -363,9 +373,6 @@ def top_5_band_ratios(X):
         # ratio[ratio>100] = 100
 
         x_new = np.append(x_new, ratio, axis=0)
-        # print x_new.shape[0] - 1, (a, b)
-    assert np.array_equal(X, xold)
-    # print x_new.shape
     return x_new.T
 
 
@@ -557,7 +564,7 @@ def empirical_band_ratio_with_k490():
     # get top 5 correlated band ratios
     X = division_feature_expansion(X)
     # ONLY top 5 bands
-    X = X[:, top_5_ratio_indices]
+    X = top_5_band_ratios(X)
 
     # k490 = 0.016 + 0.1565*  np.power(float(row['reflec_1'])/float(row['reflec_2']),  -1.540 )
     k490 = 0.016 + 0.1565 * np.power(np.divide(X[:, 0], X[:, 1]), -1.540)
@@ -617,25 +624,13 @@ def empirical_band_ratio():
     X, y = get_data(x_names=x_names, y_names=y_names, filenames=filenames, Y_CODE='Calculated SPM')
     y1 = np.log(y)
 
+
     # make X only ratios between bands
+    X_all = division_feature_expansion(X)
     # X = np.append(X,division_feature_expansion(X),axis=1)
-    X = division_feature_expansion(X)
-    # X = top_5_band_ratios(X)
-    '''
-    Ratios with highest correlation on 8 hour data
-    29: 1.91
-    9: -1.63
-    14: -1.57
-    28: 1.33
-    5: 1.15
-    '''
 
-    # reflec 5 vs 7 and 4 vs 1
-    # X = X[:,-1:]
-    # X[:,-1] = np.exp(X[:,-1])
-    # the last ratio varies more with log y than y
 
-    print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X.shape[0], X.shape[1])
+    print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X_all.shape[0], X_all.shape[1])
 
     # start ridge CV for log data
 
@@ -645,29 +640,48 @@ def empirical_band_ratio():
 
     # fit ridge with cv model
     clf = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
-    clf.fit(X, y1)
+    clf.fit(X_all, y1)
 
-    indices_and_coefs = np.array(zip(np.arange(X.shape[1]), clf.coef_))
+    indices_and_coefs = np.array(zip(np.arange(X_all.shape[1]), clf.coef_))
     print 'Weights of band ratios sorted by correlation (index,weight)'
     print indices_and_coefs[np.argsort(np.abs(clf.coef_))[::-1]]
 
-    y_predict = clf.predict(X)
+    y_predict = clf.predict(X_all)
     print('\nLog(spm) regression on all band ratios')
     graph_actual_SPM_vs_predicted_SPM(y1, y_predict)
     print('exp(log(spm) prediction on all band ratios')
     graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict))
 
-    # ONLY top 5 bands
-    X = X[:, top_5_ratio_indices]
-    # ONLY top 3 bands
-    # X = X[:,[29,9,14]]
+    '''
+    # sorts the features of X by correlation
+    sorted_by_weight_indices = np.argsort(np.abs(clf.coef_))[::-1]
+    X = X[:,sorted_by_weight_indices]
+    clf.fit(X, y1)
+    indices_and_coefs = np.array(zip(np.arange(X.shape[1])[sorted_by_weight_indices], clf.coef_))
+    print 'Weights of band ratios sorted by correlation (index,weight)'
+    print indices_and_coefs
+    '''
+
+    # top 5 ratios
+    X5 = top_5_band_ratios(X)
 
     clf2 = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
-    clf2.fit(X, y1)
-    y_predict2 = clf2.predict(X)
+    clf2.fit(X5, y1)
+    y_predict2 = clf2.predict(X5)
     print('\nLog(spm) regression on top five band ratios')
     graph_actual_SPM_vs_predicted_SPM(y1, y_predict2)
     print('exp(log(spm) prediction on top five band ratios')
+    graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict2))
+
+    # top 5 ratios and reflecs 1 through 4
+    X_5_and_SR = np.append(X[:,[0,1,2,3]],X5,axis=1)
+
+    clf2 = linear_model.RidgeCV(alphas=alphas, cv=None, store_cv_values=True)
+    clf2.fit(X_5_and_SR, y1)
+    y_predict2 = clf2.predict(X_5_and_SR)
+    print('\nLog(spm) regression on top five band ratios and reflec 1-4')
+    graph_actual_SPM_vs_predicted_SPM(y1, y_predict2)
+    print('exp(log(spm) prediction on top five band ratios and reflec 1-4')
     graph_actual_SPM_vs_predicted_SPM(y, np.exp(y_predict2))
 
 
@@ -724,8 +738,8 @@ if __name__ == '__main__':
     # Han_EA_MB_LANDSAT()
     # EA_MB_MERIS()
     # Han_EA_BR()
-    # empirical_band_ratio()
-    empirical_band_ratio_with_k490()
+    empirical_band_ratio()
+    # empirical_band_ratio_with_k490()
 ''' NOTES
 
 landsat 8 band | wavelength | landsat 4,5,7 band
@@ -748,5 +762,5 @@ R2 = .298
 EA-MB regression
 R2 for 8hr data: .196 on log regression, .00489 on actual regrssion
 
-R2 for 2hr data: .142 on log regression, .00186 on actual regression
+R2 for 2hr data: .587 on log regression, .00186 on actual regression
   '''

@@ -267,9 +267,6 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
     # Add to feature array
     x = np.append(x, top_5_bands, axis=1)
 
-    # exclude band 5 and 7 and last two band ratios which include them
-    # x = x[:,[0,1,2,3,6,7,8]]
-
     '''
     # Get top 3 correlated band ratios
     top_3_bands = regression.division_feature_expansion(x)[:,[29,9,14,28,5]]
@@ -287,6 +284,7 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
     y_pred = model['data']['y_pred']
     y_train = model['data']['y_train']
     y_train_pred = model['data']['y_train_pred']
+    print model['theta']
 
     r2_test = np.round(r2_score(y_test, y_pred), 3)
     r2_train = np.round(r2_score(y_train, y_train_pred), 3)

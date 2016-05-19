@@ -83,8 +83,19 @@ Contains table of data indicating the lat long of the various polaris collection
 coordinates in the landsat imagery.
 
 **Figures directory:**
-Output graphs from regression.py
+Output graphs from regression.py, mapping.py, make_plots.py
 
 **Learning directory:**
 *regression.py*
-Machine learning algorithms to create regression between in-situ data and satellite reflectance.
+Machine learning algorithms to create regression between in-situ data and satellite reflectance. Includes Han et al's 
+algorithm's, Nathan's multi band + ratio algorithm, and other various linear regressions.
+
+*make_plots*
+Includes methods for graphing performance of huber models. 
+
+*convex.py*
+Code for huber model.
+
+*mapping.py*
+Important code for generating SPM maps of the bay using the landsat imagery and huber model with Nathan's bands and 
+band ratios

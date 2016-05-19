@@ -78,6 +78,7 @@ def robust_test(x_train, y_train, x_test, y_test, param, save_name, title='', ch
     plt.ylabel('In situ measure SPM (g/ml)')
     plt.text(2, 6, r'an equation: $E=mc^2$', fontsize=15)
     plt.savefig(save_name)
+    plt.clf()
 
     return mean_squared_error(y_pred.tolist(), y_test.tolist()), \
            mean_squared_error(y_train.tolist(), y_train_pred.tolist()), y_pred, y_train_pred,\

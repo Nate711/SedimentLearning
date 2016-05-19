@@ -99,7 +99,7 @@ def get_cloud(all_imgs):
     :return: path to cloud tif
     '''
     cloud = [x for x in all_imgs if ('cloud' in x and not 'adjacent' in x)][0]
-    print cloud
+    # print cloud
     assert cloud is not None
     return cloud
 
