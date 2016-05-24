@@ -198,7 +198,7 @@ def create_spm_map(theta=None, scene_path='', log_spm_flag=False, color_flag=Tru
     datetime = lgd.get_datetime_from_metadata(lgd.get_metadata_path(scene_path))
 
     # Add title
-    plt.title('Map of SPM in SF Bay: ' + str(scene_name) + '\n' + str(datetime))
+    plt.title('Map of SPM in SF Bay: ' + str(scene_name) + '\n' + str(datetime) + ' GMT')
 
     # save figure
     plt.savefig('../figures/{}/{}{}.jpg'.format(folder, log_str, scene_name), dpi=dpi)
@@ -242,9 +242,13 @@ if __name__ == '__main__':
                      'LT50440342009271PAC01', 'LT50440342010194PAC01', 'LT50440342010274PAC01', 'LT50440342011165PAC02']
     # two_hr_scenes = ['LE70440342003055EDC00']
     # two_hr_scenes = ['LT50440342007234PAC01']
+
+    # two options for which maps to make
+    # only scenes used for training:
     folder_paths = [glob.glob('/Users/Nathan/Dropbox/SedimentLearning/data/landsat/' + scene[:-5] + '*')[0] + '/' for scene in two_hr_scenes]
 
-    folder_paths = [path + '/' for path in glob.glob('/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT5*')]
+    # all landsat 5 scenes (landsat 7 scenes have diag bands)
+    # folder_paths = [path + '/' for path in glob.glob('/Users/Nathan/Dropbox/SedimentLearning/data/landsat/LT5*')]
     print folder_paths
 
     for path in folder_paths:
