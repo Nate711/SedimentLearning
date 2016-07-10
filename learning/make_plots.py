@@ -8,53 +8,36 @@ seed = 4
 
 
 def r2_vs_time_cutoff(times, spm_cutoff=None):
-    # times = np.array([1,2,4])
-
     r2s = np.zeros_like(times, dtype='float64')
     num_data = np.zeros_like(times, dtype='int32')
 
-    thetas = np.array([]).reshape(9, 0)
     for index, time in enumerate(times):
-        # print index,time
+        # get appropriate features
         x, y = regression.get_data(filenames=[
             '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time)],
             spm_cutoff=spm_cutoff)
-        print x.shape
-        top_5_bands = regression.top_5_band_ratios(x)
-        # Add to feature array
-        x = np.append(x, top_5_bands, axis=1)
+        x = regression.Kau_MB_BR_features(x)
 
-        logy = np.log(y)
+        logy = np.log10(y)
+
+        # create the huber fit model
         alpha = 8
-
         model = mycvx.kfolds_convex(x, logy, alpha, random_seed=seed)
-
         y_test = model['data']['y_test']
         y_pred = model['data']['y_pred']
         y_train = model['data']['y_train']
         y_train_pred = model['data']['y_train_pred']
 
-        # print model['theta']
-
-
         r2_test = np.round(r2_score(y_test, y_pred), 3)
         r2_train = np.round(r2_score(y_train, y_train_pred), 3)
 
-        r2_test_unlog = np.round(r2_score(np.exp(y_test), np.exp(y_pred)), 3)
-        r2_train_unlog = np.round(r2_score(np.exp(y_train), np.exp(y_train_pred)), 3)
+        r2_test_unlog = np.round(r2_score(np.power(10,y_test), np.power(10,y_pred)), 3)
+        r2_train_unlog = np.round(r2_score(np.power(10,y_train), np.power(10,y_train_pred)), 3)
 
-        # print r2_train,r2_test
-        # r2s[index] = r2_train
         r2s[index] = r2_train_unlog
         num_data[index] = x.shape[0]
 
-        # TODO fix this bug, thetas is 1d array
-        # thetas = np.append(thetas,model['theta'],axis=1)
-
         print r2s, num_data
-    # print thetas
-    # TODO, fix division
-    # print np.divide(thetas[1],thetas[0])
     return r2s, num_data
 
 
@@ -66,6 +49,9 @@ def plot_r2_over_time_diff():
     # r2s,num_data = [ 0.702  0.655  0.432  0.106  0.106  0.106  0.045  0.17 ], [ 61, 126, 234, 281, 281, 281, 298, 480]
     # unlogged r2 below, ALL POINTS UNDER CLOUD AND ADJACENT DELETED
     # [ 0.883  0.697  0.447  0.204  0.204  0.204  0.216  0.162] [ 34  75 157 185 185 185 197 302]
+
+    # unlogged r2 below, NEW KAU FEATURES
+    # [ 0.851  0.746  0.439  0.165  0.165  0.165  0.191  0.16 ] [ 34  75 157 185 185 185 197 302]
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax1plot = ax.plot(times, r2s, 'ob')
@@ -76,9 +62,6 @@ def plot_r2_over_time_diff():
     ax.set_xticks(times)
 
     ax.legend(ax1plot + ax2plot, ['R^2', 'Number of Samples'], loc='upper right')
-    # ax2.legend('Num Samples')
-    # ax.legend(loc=1)
-    # ax2.legend(loc=2)
 
     ax2.set_ylabel('Number of Samples')
     fig.suptitle('R^2s of Robust Regression Model versus Data Collection Time Difference Threshold')
@@ -243,8 +226,58 @@ def make_huber_train_basic(time_cutoff, spm_cutoff=None):
     # plt.show()
     print 'r2 train log: ', r2_train
 
+def make_huber_train_Kau_MB_ExCoeff(time_cutoff):
+    '''
 
-def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
+    :param time_cutoff: acceptable maximum diffence in time between polaris and landsat
+    :return: nothing, just saves plot
+    '''
+    # Get the appropriate features: 3 band ratios, 4 reflectances, SPM
+    x, y = regression.get_data(filenames=[
+        '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time_cutoff)],y_names=['Measured Extinction Coefficient'],Y_CODE='Measured Extinction Coefficient')  # 8hr data
+    x = regression.Kau_MB_BR_features(x)
+
+    # log base 10 spm regression
+    logy = np.log10(y)
+
+    # generate the huber regression model
+    alpha = 8
+    model = mycvx.kfolds_convex(x, logy, alpha, random_seed=seed)
+    y_test = model['data']['y_test']
+    y_pred = model['data']['y_pred']
+    y_train = model['data']['y_train']
+    y_train_pred = model['data']['y_train_pred']
+
+    # Compute R2 scores
+    r2_test = np.round(r2_score(y_test, y_pred), 3)
+    r2_train = np.round(r2_score(y_train, y_train_pred), 3)
+
+    # Start creating the plot for the log graph
+    plt.clf()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    ax.plot(y_train_pred, y_train, '.b', label='Training Data')
+    ax.plot(y_pred, y_test, '.r', label='Test Data')
+    ax.plot(np.arange(0, 1.2 * max(np.max(y_test), np.max(y_train)), .1),
+            np.arange(0, 1.2 * max(np.max(y_train), np.max(y_test)), .1), '-k')
+
+    ax.legend()
+
+    fig.suptitle(
+        'Extinction Coefficient Reconstruction Ability of Kau Multi Band Regression Model \n (3 Band Ratios & 4 Surface Reflectances) using {}hr Data'.format(
+            time_cutoff))
+    ax.set_xlabel('Log Remotely Sensed SPM (mg/L)')
+    ax.set_ylabel('Log In situ measure SPM (mg/L)')
+
+    ax.annotate(xy=(0, 0), xytext=(5. / 6., 1. / 7.), s='Training Set R^2={}'.format(r2_train),
+                textcoords="figure fraction", family='serif', horizontalalignment='right')
+    ax.annotate(xy=(0, 0), xytext=(5. / 6., 1.5 / 7.), s='Testing Set R^2={}'.format(r2_test),
+                textcoords="figure fraction", family='serif', horizontalalignment='right')
+
+    plt.savefig('../figures/huber_training_Kau_MB_excoeff_log_{}hr'.format(time_cutoff))
+
+def make_huber_train_Kau_MB(time_cutoff, spm_cutoff=None):
     '''
     on 8hr data, the r2 for the log regression is .415 and .094 when unlogged
     on 4hr data, r2 is .313 on unlogged top 5 band ratios
@@ -258,37 +291,29 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
     :return:
     '''
 
+    # Get the appropriate features: 3 band ratios, 4 reflectances, SPM
     x, y = regression.get_data(filenames=[
         '/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_{}hr.csv'.format(time_cutoff)],
         spm_cutoff=spm_cutoff)  # 8hr data
+    x = regression.Kau_MB_BR_features(x)
 
-    # Get top 5 correlated band ratios
-    top_5_bands = regression.top_5_band_ratios(x)
-    # Add to feature array
-    x = np.append(x, top_5_bands, axis=1)
+    # log base 10 spm regression
+    logy = np.log10(y)
 
-    '''
-    # Get top 3 correlated band ratios
-    top_3_bands = regression.division_feature_expansion(x)[:,[29,9,14,28,5]]
-    # Add to feature array
-    x = np.append(x,top_3_bands,axis=1)
-    '''
-
-    # log spm regression
-    logy = np.log(y)
-
+    # generate the huber regression model
     alpha = 8
-
     model = mycvx.kfolds_convex(x, logy, alpha, random_seed=seed)
     y_test = model['data']['y_test']
     y_pred = model['data']['y_pred']
     y_train = model['data']['y_train']
     y_train_pred = model['data']['y_train_pred']
-    print model['theta']
+    # print model['theta']
 
+    # Compute R2 scores
     r2_test = np.round(r2_score(y_test, y_pred), 3)
     r2_train = np.round(r2_score(y_train, y_train_pred), 3)
 
+    # Start creating the plot for the log graph
     plt.clf()
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -301,7 +326,7 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
     ax.legend()
 
     fig.suptitle(
-        'Reconstruction Ability of Multi Band Regression Model on\n 5 Most Correlated Band Ratios and 6 Surface Reflectances using {}hr Data'.format(
+        'Reconstruction Ability of Kau Multi Band Regression Model \n (3 Band Ratios & 4 Surface Reflectances) using {}hr Data'.format(
             time_cutoff))
     ax.set_xlabel('Log Remotely Sensed SPM (mg/L)')
     ax.set_ylabel('Log In situ measure SPM (mg/L)')
@@ -311,15 +336,16 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
     ax.annotate(xy=(0, 0), xytext=(5. / 6., 1.5 / 7.), s='Testing Set R^2={}'.format(r2_test),
                 textcoords="figure fraction", family='serif', horizontalalignment='right')
 
-    plt.savefig('../figures/huber_training_band_ratio_log_{}hr'.format(time_cutoff))
+    plt.savefig('../figures/huber_training_Kau_MB_log_{}hr'.format(time_cutoff))
     # plt.show()
     print 'r2 train log: ', r2_train
 
-    # unlog y_train and pred etc
-    y_test = np.exp(y_test)
-    y_pred = np.exp(y_pred)
-    y_train = np.exp(y_train)
-    y_train_pred = np.exp(y_train_pred)
+    # start creating the plot for the non log graph
+    # unlog y_train, pred etc
+    y_test = np.power(10,y_test)
+    y_pred = np.power(10,y_pred)
+    y_train = np.power(10,y_train)
+    y_train_pred = np.power(10,y_train_pred)
 
     r2_test = np.round(r2_score(y_test, y_pred), 3)
     r2_train = np.round(r2_score(y_train, y_train_pred), 3)
@@ -334,7 +360,7 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
     ax.plot(np.arange(0, 1.2 * max(np.max(y_test), np.max(y_train)), .1),
             np.arange(0, 1.2 * max(np.max(y_train), np.max(y_test)), .1), '-k')
     fig.suptitle(
-        'Reconstruction Ability of Robust Regression Model on \n5 Most Correlated Band Ratios and 6 Surface Reflectances using {}hr Data'.format(
+        'Reconstruction Ability of Kau Multi Band Regression Model \n (3 Band Ratios & 4 Surface Reflectances) using {}hr Data'.format(
             time_cutoff))
     ax.set_xlabel('Remotely Sensed SPM (mg/L)')
     ax.set_ylabel('In situ measure SPM (mg/L)')
@@ -344,7 +370,7 @@ def make_huber_train_band_ratios(time_cutoff, spm_cutoff=None):
     ax.annotate(xy=(0, 0), xytext=(5. / 6., 1.5 / 7.), s='Testing Set R^2={}'.format(r2_test),
                 textcoords="figure fraction", family='serif', horizontalalignment='right')
 
-    plt.savefig('../figures/huber_training_band_ratio_{}hr'.format(time_cutoff))
+    plt.savefig('../figures/huber_training_Kau_MB_{}hr'.format(time_cutoff))
     # plt.show()
     print 'r2 train not log: ', r2_train
 
@@ -413,9 +439,10 @@ def make_huber_train():
 if __name__ == '__main__':
     # make_huber_train()
     # make_huber_test()
-    # [make_huber_train_band_ratios(i) for i in [1,2,4,8]]
-    make_huber_train_band_ratios(2)
+    # [make_huber_train_Kau_MB(i) for i in [1,2,4,8]]
+    # make_huber_train_Kau_MB(2)
     # make_huber_train_EA_MB(2)
     # make_huber_train_basic(2)
     # plot_r2_over_time_diff()
     # r2_vs_time_cutoff([8])
+    make_huber_train_Kau_MB_ExCoeff(2)

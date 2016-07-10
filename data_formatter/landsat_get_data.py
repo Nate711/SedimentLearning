@@ -385,7 +385,8 @@ def convert_all_usgs_to_UTC(paths=['/Users/Nathan/Dropbox/SedimentLearning/data/
 # Filtered data produced on 3/3/16 may be incorrect because of timezone shifting
 # TODO fix timezone error with converting pst to utc
 # TODO polaris UTC data created on 3/3/16 off by about 1 hr!!! new code fixes this
-def convert_polaris_to_UTC():
+def convert_polaris_to_UTC(filename = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data.csv',
+                           savepath = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv'):
 
     '''
     Reads Joe's polaris data csv into Pandas DataFrame and then turns the US pacific times into utc times.
@@ -395,7 +396,7 @@ def convert_polaris_to_UTC():
     before = time.time()
 
     # read csv
-    polaris = pd.read_csv('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data.csv', low_memory=False)
+    polaris = pd.read_csv(filename, low_memory=False)
 
     # get rid of the units row
     polaris.drop(polaris.index[0], inplace=True)
@@ -409,13 +410,15 @@ def convert_polaris_to_UTC():
     # strip spaces off of date_time
     # convert to date_time
     # localize to pst
+
+    # big %Y is 2003
     polaris['date_time_UTC'] = [PST.localize(datetime.strptime(x.strip(),'%m/%d/%Y %H%M')) for x in polaris.date_time_UTC]
 
     #convert to UTC
     polaris['date_time_UTC'] = [x.astimezone(pytz.timezone('UTC')) for x in polaris.date_time_UTC]
 
     # save to csv
-    polaris.to_csv('/Users/Nathan/Dropbox/SedimentLearning/data/polaris/all_polaris_data_UTC.csv', mode='wb+',
+    polaris.to_csv(savepath, mode='wb+',
                    index=False)
     print 'Time to execute conversion: ' + str(time.time() - before)
     return polaris
@@ -710,9 +713,15 @@ if __name__ == '__main__':
     # time_and_write_landsat_data()
     # convert_polaris_to_UTC()
     # convert_landsat_to_UTC()
-    filtered = create_final_filtered_csv()
-    print filtered
-    create_varied_cutoff_csvs()
+    # filtered = create_final_filtered_csv()
+    # print filtered
+    # create_varied_cutoff_csvs()
+
+
+    ### workflow for changing polaris data to UTC
+
+    # convert_polaris_to_UTC(filename = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_excoeff_goog.csv',
+    #                        savepath = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_excoeff_UTC.csv')
 
 
     #### workflow for matching landsat data with usgs data:
