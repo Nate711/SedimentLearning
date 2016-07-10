@@ -719,9 +719,16 @@ if __name__ == '__main__':
 
 
     ### workflow for changing polaris data to UTC
-
     # convert_polaris_to_UTC(filename = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_excoeff_goog.csv',
     #                        savepath = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_excoeff_UTC.csv')
+
+    ### workflow for incorporating polaris excoeff into filtered csv
+    # convert_polaris_to_UTC(filename = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_excoeff_goog.csv',
+    #                      savepath = '/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_excoeff_UTC.csv')
+    # filtered = create_final_filtered_csv(polaris_utc_path='/Users/Nathan/Dropbox/SedimentLearning/data/polaris/polaris_excoeff_UTC.csv',
+    #                                      save_path_base='/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_excoeff')
+    # print filtered
+    # create_varied_cutoff_csvs(save_path_base='/Users/Nathan/Dropbox/SedimentLearning/data/landsat_polaris_filtered/filtered_excoeff')
 
 
     #### workflow for matching landsat data with usgs data:
