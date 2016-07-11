@@ -91,7 +91,7 @@ Machine learning algorithms to create regression between in-situ data and satell
 algorithm's, Nathan's multi band + ratio algorithm, and other various linear regressions.
 
 *make_plots*
-Includes methods for graphing performance of huber models. 
+Includes methods for graphing performance of huber-based models. 
 
 *convex.py*
 Code for huber model.

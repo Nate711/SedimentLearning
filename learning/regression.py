@@ -339,8 +339,28 @@ def Kau_MB_BR_features(X):
     :return: Array for linear reg model
     '''
 
-    # Use reflec 1,2,3,4 and ratios band 2/ band 1, band 3/ band 2, band 4/ band 2
+    # Use reflec 1,2,3,4 and ratios (band 2/ band 1), (band 3/ band 2), (band 4/ band 2)
     return np.append(X[:,[0,1,2,3]],top_5_band_ratios(X)[:,[0,1,2]],axis=1)
+
+def Kau_Simple_features(X):
+    '''
+    Manually selected 3 reflectances and found r2 on 1hr data. Found best set of 3.
+    Hopefully this model doesn't overfit on 1hr data.
+
+    :param X: all input features (reflectances)
+    :return: only features going to use
+    '''
+
+    # best combo of 3 reflectances (r2 for unlog)
+    # 1,2,3 -> .82
+    # 103 -> .84
+    # 120 -> .687
+    # 023 -> .537
+    # 01 + ratio0 -> .72
+    # 13 + ratio0 -> .833
+    # 03 + ratio0 -> .633
+    # 13 + ratio1 -> .826
+    return X[:,[1,0,3]]
 
 def top_5_band_ratios(X):
     '''
@@ -627,7 +647,7 @@ def empirical_band_ratio():
 
     # make X only ratios between bands
     X_all = division_feature_expansion(X)
-    # X = np.append(X,division_feature_expansion(X),axis=1)
+    # X_all = np.append(X,division_feature_expansion(X),axis=1)
 
 
     print 'LANDSAT-POLARIS samples: {}   features: {}'.format(X_all.shape[0], X_all.shape[1])
@@ -730,7 +750,6 @@ def test():
 
 
 if __name__ == '__main__':
-    print 'hi'
     # test()
     # main()
     ## DO LANDSAT REGRESSION
