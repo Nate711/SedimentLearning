@@ -360,7 +360,7 @@ def Kau_Simple_features(X):
     # 13 + ratio0 -> .833
     # 03 + ratio0 -> .633
     # 13 + ratio1 -> .826
-    return X[:,[1,0,3]]
+    return X[:,[0,1,3]]
 
 def top_5_band_ratios(X):
     '''
